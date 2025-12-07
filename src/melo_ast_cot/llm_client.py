@@ -23,6 +23,25 @@ def get_gpt_response(prompt: str, model: str = "gpt-4-0613") -> str:
         max_tokens=DEFAULT_MAX_TOKENS,
         top_p=DEFAULT_TOP_P,
         frequency_penalty=0,
+        presence_penalty=0
+    )
+    return response.choices[0].message.content
+
+
+def get_gpt_response_json(prompt: str, model: str = "gpt-4-0613") -> str:
+    client = OpenAI()
+    response = client.chat.completions.create(
+        model=model,
+        messages=[
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+        temperature=DEFAULT_TEMPERATURE,
+        max_tokens=DEFAULT_MAX_TOKENS,
+        top_p=DEFAULT_TOP_P,
+        frequency_penalty=0,
         presence_penalty=0,
         response_format={"type": "json_object"}
     )
