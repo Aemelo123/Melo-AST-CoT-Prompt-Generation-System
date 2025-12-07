@@ -12,7 +12,9 @@ license = {text = "MIT"}
 authors = [
     {name = "Melo"}
 ]
-dependencies = []
+dependencies = [
+    "datasets>=2.14.0",
+]
 
 [project.optional-dependencies]
 dev = [

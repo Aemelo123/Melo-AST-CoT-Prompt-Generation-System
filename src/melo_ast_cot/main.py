@@ -1,6 +1,6 @@
 """Main entry point for the experiment."""
 
-from melo_ast_cot import llm_client
+from melo_ast_cot import llm_client, securityeval
 
 def main() -> None:
     """Run the experiment."""
@@ -17,6 +17,9 @@ def main() -> None:
         prompt="Write a one-sentence bedtime story about a donkey."
     )
     print(anthropic_response)
+
+    print("---First SecurityEval Coding Example---")
+    print(securityeval.first_coding_example())
 
 
 if __name__ == "__main__":
