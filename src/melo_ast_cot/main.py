@@ -1,6 +1,6 @@
 """Main entry point for the experiment."""
 
-from melo_ast_cot import llm_client, securityeval
+from melo_ast_cot import llm_client, securityeval, ast_parser
 
 def main() -> None:
     """Run the experiment."""
@@ -20,6 +20,10 @@ def main() -> None:
 
     print("---First SecurityEval Coding Example---")
     print(securityeval.first_coding_example())
+
+    print("---Parsed Prompt---")
+    parsed_prompt = ast_parser.parse_prompt(securityeval.first_coding_example())
+    print(parsed_prompt)
 
 
 if __name__ == "__main__":
