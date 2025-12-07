@@ -1,16 +1,26 @@
+import json
 import random
 from datetime import datetime
+from pathlib import Path
 
 from melo_ast_cot import ast_parser, nl_cot_baseline, securityeval
 
 
 RANDOM_SEED = 999
+RESULTS_DIR = Path("results")
 
 
 def assign_conditions(tasks: list) -> tuple[list, list]:
     random.seed(RANDOM_SEED)
     shuffled = random.sample(tasks, len(tasks))
     return shuffled[:25], shuffled[25:]
+
+
+def save_sample(sample: dict) -> Path:
+    RESULTS_DIR.mkdir(exist_ok=True)
+    path = RESULTS_DIR / f"{sample['sample_id']}.json"
+    path.write_text(json.dumps(sample, indent=2))
+    return path
 
 
 def generate_sample(task: dict, llm_func, iteration: int, condition: str) -> dict:
