@@ -63,6 +63,16 @@ def parse_prompt(code: str) -> dict:
     return {"nodes": nodes}
 
 
+def _parse_value(value):
+    """Helper to parse a value that can be a string, dict, or literal."""
+    if isinstance(value, str):
+        return ast.Name(id=value, ctx=ast.Load())
+    elif isinstance(value, dict):
+        return json_to_ast(value)
+    else:
+        return ast.Constant(value=value)
+
+
 def json_to_ast(node_json: dict) -> ast.AST:
     node_type = node_json.get("type")
 
@@ -145,6 +155,118 @@ def json_to_ast(node_json: dict) -> ast.AST:
             body=body
         )
 
+    # If - conditional
+    elif node_type == "If":
+        test = _parse_value(node_json["test"])
+        body = [json_to_ast(item) for item in node_json.get("body", [])]
+        orelse = [json_to_ast(item) for item in node_json.get("orelse", [])]
+
+        return ast.If(test=test, body=body, orelse=orelse)
+
+    # For - for loop
+    elif node_type == "For":
+        target = node_json["target"]
+        if isinstance(target, str):
+            target_node = ast.Name(id=target, ctx=ast.Store())
+        else:
+            target_node = json_to_ast(target)
+            target_node.ctx = ast.Store()
+
+        iter_node = _parse_value(node_json["iter"])
+        body = [json_to_ast(item) for item in node_json.get("body", [])]
+        orelse = [json_to_ast(item) for item in node_json.get("orelse", [])]
+
+        return ast.For(target=target_node, iter=iter_node, body=body, orelse=orelse)
+
+    # While - while loop
+    elif node_type == "While":
+        test = _parse_value(node_json["test"])
+        body = [json_to_ast(item) for item in node_json.get("body", [])]
+        orelse = [json_to_ast(item) for item in node_json.get("orelse", [])]
+
+        return ast.While(test=test, body=body, orelse=orelse)
+
+    # Try - try/except/finally
+    elif node_type == "Try":
+        body = [json_to_ast(item) for item in node_json.get("body", [])]
+        orelse = [json_to_ast(item) for item in node_json.get("orelse", [])]
+        finalbody = [json_to_ast(item) for item in node_json.get("finalbody", [])]
+
+        handlers = []
+        for handler in node_json.get("handlers", []):
+            exc_type = handler.get("type")
+            if exc_type:
+                if isinstance(exc_type, str):
+                    exc_type_node = ast.Name(id=exc_type, ctx=ast.Load())
+                else:
+                    exc_type_node = json_to_ast(exc_type)
+            else:
+                exc_type_node = None
+
+            handler_name = handler.get("name")
+            handler_body = [json_to_ast(item) for item in handler.get("body", [])]
+
+            handlers.append(ast.ExceptHandler(
+                type=exc_type_node,
+                name=handler_name,
+                body=handler_body
+            ))
+
+        return ast.Try(body=body, handlers=handlers, orelse=orelse, finalbody=finalbody)
+
+    # BinOp - binary operation (e.g., a + b, x * y)
+    elif node_type == "BinOp":
+        left = _parse_value(node_json["left"])
+        right = _parse_value(node_json["right"])
+        op_str = node_json["op"]
+
+        op_map = {
+            "Add": ast.Add(), "+": ast.Add(),
+            "Sub": ast.Sub(), "-": ast.Sub(),
+            "Mult": ast.Mult(), "*": ast.Mult(),
+            "Div": ast.Div(), "/": ast.Div(),
+            "FloorDiv": ast.FloorDiv(), "//": ast.FloorDiv(),
+            "Mod": ast.Mod(), "%": ast.Mod(),
+            "Pow": ast.Pow(), "**": ast.Pow(),
+            "BitOr": ast.BitOr(), "|": ast.BitOr(),
+            "BitXor": ast.BitXor(), "^": ast.BitXor(),
+            "BitAnd": ast.BitAnd(), "&": ast.BitAnd(),
+        }
+        op = op_map.get(op_str)
+        if not op:
+            raise ValueError(f"Unknown binary operator: {op_str}")
+
+        return ast.BinOp(left=left, op=op, right=right)
+
+    # Compare - comparison (e.g., a < b, x == y)
+    elif node_type == "Compare":
+        left = _parse_value(node_json["left"])
+
+        cmp_map = {
+            "Eq": ast.Eq(), "==": ast.Eq(),
+            "NotEq": ast.NotEq(), "!=": ast.NotEq(),
+            "Lt": ast.Lt(), "<": ast.Lt(),
+            "LtE": ast.LtE(), "<=": ast.LtE(),
+            "Gt": ast.Gt(), ">": ast.Gt(),
+            "GtE": ast.GtE(), ">=": ast.GtE(),
+            "Is": ast.Is(), "is": ast.Is(),
+            "IsNot": ast.IsNot(), "is not": ast.IsNot(),
+            "In": ast.In(), "in": ast.In(),
+            "NotIn": ast.NotIn(), "not in": ast.NotIn(),
+        }
+
+        ops = []
+        comparators = []
+        for comp in node_json["comparators"]:
+            op_str = comp["op"]
+            op = cmp_map.get(op_str)
+            if not op:
+                raise ValueError(f"Unknown comparison operator: {op_str}")
+            ops.append(op)
+            comparators.append(_parse_value(comp["value"]))
+
+        return ast.Compare(left=left, ops=ops, comparators=comparators)
+
     else:
         raise ValueError(f"Unknown node type: {node_type}")
 
@@ -186,6 +308,12 @@ Use these node types:
 - Assign: {{"type": "Assign", "target": "variable_name", "value": <node>}}
 - Return: {{"type": "Return", "value": "variable_name" or <node>}}
 - Constant: {{"type": "Constant", "value": "literal_value"}}
+- If: {{"type": "If", "test": <Compare or value>, "body": [<nodes>], "orelse": [<nodes>]}}
+- For: {{"type": "For", "target": "variable_name", "iter": <node>, "body": [<nodes>], "orelse": [<nodes>]}}
+- While: {{"type": "While", "test": <Compare or value>, "body": [<nodes>], "orelse": [<nodes>]}}
+- Try: {{"type": "Try", "body": [<nodes>], "handlers": [{{"type": "exception_type", "name": "e", "body": [<nodes>]}}], "orelse": [<nodes>], "finalbody": [<nodes>]}}
+- BinOp: {{"type": "BinOp", "left": <node>, "op": "+|-|*|/|//|%|**", "right": <node>}}
+- Compare: {{"type": "Compare", "left": <node>, "comparators": [{{"op": "==|!=|<|<=|>|>=|in|not in", "value": <node>}}]}}
 
 Return ONLY the JSON object, no explanation."""
 
