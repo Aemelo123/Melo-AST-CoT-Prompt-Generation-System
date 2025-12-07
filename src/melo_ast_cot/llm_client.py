@@ -2,27 +2,45 @@ from openai import OpenAI
 from anthropic import Anthropic
 
 
+# Standardized generation parameters per methodology
+DEFAULT_TEMPERATURE = 0.7
+DEFAULT_MAX_TOKENS = 2048
+DEFAULT_TOP_P = 0.95
+
+
 # (OpenAI, n.d.) https://platform.openai.com/docs/quickstart
-def get_gpt_response(prompt: str, model: str = "gpt-5-nano") -> str:
+def get_gpt_response(prompt: str, model: str = "gpt-4-0613") -> str:
     client = OpenAI()
-    response = client.responses.create(
-        model = model,
-        input = prompt
+    response = client.chat.completions.create(
+        model=model,
+        messages=[
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+        temperature=DEFAULT_TEMPERATURE,
+        max_tokens=DEFAULT_MAX_TOKENS,
+        top_p=DEFAULT_TOP_P,
+        frequency_penalty=0,
+        presence_penalty=0
     )
-    return response.output_text
+    return response.choices[0].message.content
 
 
 # (Anthropic, n.d.) https://platform.claude.com/docs/en/get-started#python
-def get_anthropic_response(prompt: str, model: str = "claude-sonnet-4-5", max_tokens = 1000) -> str:
+def get_anthropic_response(prompt: str, model: str = "claude-sonnet-4-5-20250929") -> str:
     client = Anthropic()
     response = client.messages.create(
-        model = model,
-        max_tokens = max_tokens,
-        messages = [
+        model=model,
+        max_tokens=DEFAULT_MAX_TOKENS,
+        messages=[
             {
-            "role": "user",
-            "content": prompt
+                "role": "user",
+                "content": prompt
             }
-        ]
+        ],
+        temperature=DEFAULT_TEMPERATURE,
+        top_p=DEFAULT_TOP_P
     )
     return response.content[0].text
