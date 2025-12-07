@@ -1,7 +1,7 @@
 """Main entry point for the experiment."""
 
 import json
-from melo_ast_cot import llm_client, securityeval, ast_parser
+from melo_ast_cot import llm_client, securityeval, ast_parser, nl_cot_baseline
 
 def main() -> None:
     """Run the experiment."""
@@ -66,6 +66,12 @@ def main() -> None:
     print("---Generated Code from LLM JSON---")
     generated_code = ast_parser.json_to_code(llm_json)
     print(generated_code)
+
+    print("Natural Language Chain-of-Thought Baseline Code Generation---")
+    nl_cot_code = nl_cot_baseline.get_nl_cot_code(
+        parsed_prompt, llm_client.get_anthropic_response
+    )
+    print(nl_cot_code)
 
     
 
