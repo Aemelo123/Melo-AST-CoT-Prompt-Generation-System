@@ -329,9 +329,6 @@ Return ONLY the JSON object, no explanation."""
         response = response[:-3]
     response = response.strip()
 
-    print("---LLM Raw Response---")
-    print(response)
-
     # parse the JSON from the response
     response_json = json.loads(response)
 
