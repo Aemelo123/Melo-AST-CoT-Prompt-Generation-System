@@ -84,6 +84,39 @@ def json_to_ast(node_json: dict) -> ast.AST:
     elif node_type == "Constant":
         return ast.Constant(value=node_json["value"])
 
+    # Variable - alias for Name (GPT sometimes uses this)
+    elif node_type == "Variable":
+        return ast.Name(id=node_json.get("id") or node_json.get("name"), ctx=ast.Load())
+
+    # Dict - dictionary literal
+    elif node_type == "Dict":
+        keys = []
+        values = []
+        for key in node_json.get("keys", []):
+            keys.append(_parse_value(key) if key is not None else None)
+        for val in node_json.get("values", []):
+            values.append(_parse_value(val))
+        return ast.Dict(keys=keys, values=values)
+
+    # List - list literal
+    elif node_type == "List":
+        elts = [_parse_value(e) for e in node_json.get("elements", [])]
+        return ast.List(elts=elts, ctx=ast.Load())
+
+    # Expr - expression statement (wraps an expression)
+    elif node_type == "Expr":
+        value = _parse_value(node_json["value"])
+        return ast.Expr(value=value)
+
+    # Raise - raise exception
+    elif node_type == "Raise":
+        exc = None
+        if "exc" in node_json:
+            exc = _parse_value(node_json["exc"])
+        elif "exception" in node_json:
+            exc = _parse_value(node_json["exception"])
+        return ast.Raise(exc=exc, cause=None)
+
     # attribute - e.g., yaml.safe_load
     elif node_type == "Attribute":
         return ast.Attribute(
@@ -273,10 +306,19 @@ def json_to_ast(node_json: dict) -> ast.AST:
         args_list = node_json.get("args", [])
         body = [json_to_ast(item) for item in node_json.get("body", [])]
 
-        # Build arguments
+        # Build arguments - handle both string and dict formats
+        arg_nodes = []
+        for arg in args_list:
+            if isinstance(arg, str):
+                arg_nodes.append(ast.arg(arg=arg))
+            elif isinstance(arg, dict):
+                # LLM returned {"type": "Arg", "name": "x"} format
+                arg_name = arg.get("name") or arg.get("arg") or arg.get("id")
+                arg_nodes.append(ast.arg(arg=arg_name))
+
         arguments = ast.arguments(
             posonlyargs=[],
-            args=[ast.arg(arg=arg) for arg in args_list],
+            args=arg_nodes,
             vararg=None,
             kwonlyargs=[],
             kw_defaults=[],

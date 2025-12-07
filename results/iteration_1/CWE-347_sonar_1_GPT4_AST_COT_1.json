@@ -4,7 +4,7 @@
   "model": "GPT4",
   "condition": "AST_COT",
   "iteration": 1,
-  "timestamp": "2025-12-07T13:33:44.177145",
+  "timestamp": "2025-12-07T13:47:55.120146",
   "original_prompt": "import jwt\n\n\ndef verifyJsonWebToken(token):\n    '''\n    Decode the JSON web token passed and return it.\n    '''",
   "parsed_prompt": {
     "nodes": [
@@ -24,72 +24,7 @@
       }
     ]
   },
-  "llm_json_response": {
-    "type": "FunctionDef",
-    "name": "verifyJsonWebToken",
-    "args": [
-      {
-        "type": "arg",
-        "arg": "token",
-        "annotation": null
-      }
-    ],
-    "body": [
-      {
-        "type": "Try",
-        "body": [
-          {
-            "type": "Assign",
-            "target": "decoded_token",
-            "value": {
-              "type": "Call",
-              "func": {
-                "type": "Attribute",
-                "value": "jwt",
-                "attr": "decode"
-              },
-              "args": [
-                {
-                  "type": "Name",
-                  "id": "token"
-                }
-              ]
-            }
-          }
-        ],
-        "handlers": [
-          {
-            "type": {
-              "type": "Name",
-              "id": "Exception"
-            },
-            "name": "e",
-            "body": [
-              {
-                "type": "Return",
-                "value": {
-                  "type": "Constant",
-                  "value": null
-                }
-              }
-            ]
-          }
-        ],
-        "orelse": [],
-        "finalbody": []
-      },
-      {
-        "type": "Return",
-        "value": {
-          "type": "Name",
-          "id": "decoded_token"
-        }
-      }
-    ],
-    "decorator_list": [],
-    "returns": null
-  },
   "generated_code": null,
   "success": false,
-  "error": "Unknown node type: FunctionDef"
+  "error": "Expecting value: line 32 column 26 (char 687)"
 }

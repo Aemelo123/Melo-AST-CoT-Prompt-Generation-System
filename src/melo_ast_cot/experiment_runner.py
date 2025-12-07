@@ -64,17 +64,21 @@ def run_experiment(llm_func, model_name: str, iteration: int):
     for task in ast_tasks:
         print(f"[{model_name}] Generating AST_COT sample for {task['ID']} iteration {iteration}...")
         sample = generate_sample(task, llm_func, iteration, "AST_COT", model_name)
-        if sample["success"] and sample["generated_code"]:
-            print(f"[{model_name}] Running Bandit and Semgrep on {sample['sample_id']}...")
-            sample["scan_results"] = vulnerability_scanner.scan_code(sample["generated_code"])
+        if not sample["success"]:
+            save_sample(sample, iteration)
+            raise RuntimeError(f"AST_COT failed for {sample['sample_id']}: {sample['error']}")
+        print(f"[{model_name}] Running Bandit and Semgrep on {sample['sample_id']}...")
+        sample["scan_results"] = vulnerability_scanner.scan_code(sample["generated_code"])
         save_sample(sample, iteration)
         print(f"[{model_name}] Saved: {sample['sample_id']}")
 
     for task in nl_tasks:
         print(f"[{model_name}] Generating NL_COT sample for {task['ID']} iteration {iteration}...")
         sample = generate_sample(task, llm_func, iteration, "NL_COT", model_name)
-        if sample["success"] and sample["generated_code"]:
-            print(f"[{model_name}] Running Bandit and Semgrep on {sample['sample_id']}...")
-            sample["scan_results"] = vulnerability_scanner.scan_code(sample["generated_code"])
+        if not sample["success"]:
+            save_sample(sample, iteration)
+            raise RuntimeError(f"NL_COT failed for {sample['sample_id']}: {sample['error']}")
+        print(f"[{model_name}] Running Bandit and Semgrep on {sample['sample_id']}...")
+        sample["scan_results"] = vulnerability_scanner.scan_code(sample["generated_code"])
         save_sample(sample, iteration)
         print(f"[{model_name}] Saved: {sample['sample_id']}")
