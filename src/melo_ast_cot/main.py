@@ -14,7 +14,7 @@ def main() -> None:
     print(f"Running iteration {iteration} of 5...")
 
     print("Starting experiment with GPT-4...")
-    experiment_runner.run_experiment(llm_client.get_gpt_response, "GPT4", iteration, llm_client.get_gpt_response_json)
+    experiment_runner.run_experiment(llm_client.get_gpt_response, "GPT4", iteration)
 
     print("Starting experiment with Claude Sonnet 4.5...")
     experiment_runner.run_experiment(llm_client.get_anthropic_response, "CLAUDE", iteration)

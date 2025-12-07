@@ -57,16 +57,13 @@ def generate_sample(task: dict, llm_func, iteration: int, condition: str, model_
     return sample
 
 
-def run_experiment(llm_func, model_name: str, iteration: int, llm_func_json=None):
+def run_experiment(llm_func, model_name: str, iteration: int):
     tasks = securityeval.load_tasks()
     ast_tasks, nl_tasks = assign_conditions(tasks)
 
-    # Use JSON mode function for AST-CoT if provided, otherwise use regular function
-    ast_llm_func = llm_func_json if llm_func_json else llm_func
-
     for task in ast_tasks:
         print(f"[{model_name}] Generating AST_COT sample for {task['ID']} iteration {iteration}...")
-        sample = generate_sample(task, ast_llm_func, iteration, "AST_COT", model_name)
+        sample = generate_sample(task, llm_func, iteration, "AST_COT", model_name)
         if not sample["success"]:
             save_sample(sample, iteration)
             raise RuntimeError(f"AST_COT failed for {sample['sample_id']}: {sample['error']}")
