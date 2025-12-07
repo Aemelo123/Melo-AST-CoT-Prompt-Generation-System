@@ -1,6 +1,16 @@
+import random
 from datetime import datetime
 
-from melo_ast_cot import ast_parser, nl_cot_baseline
+from melo_ast_cot import ast_parser, nl_cot_baseline, securityeval
+
+
+RANDOM_SEED = 999
+
+
+def assign_conditions(tasks: list) -> tuple[list, list]:
+    random.seed(RANDOM_SEED)
+    shuffled = random.sample(tasks, len(tasks))
+    return shuffled[:25], shuffled[25:]
 
 
 def generate_sample(task: dict, llm_func, iteration: int, condition: str) -> dict:
