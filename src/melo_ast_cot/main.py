@@ -67,7 +67,7 @@ def main() -> None:
     generated_code = ast_parser.json_to_code(llm_json)
     print(generated_code)
 
-    print("Natural Language Chain-of-Thought Baseline Code Generation---")
+    print("---Natural Language Chain-of-Thought Baseline Code Generation---")
     nl_cot_code = nl_cot_baseline.get_nl_cot_code(
         parsed_prompt, llm_client.get_anthropic_response
     )
