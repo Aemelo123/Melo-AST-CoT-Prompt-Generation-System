@@ -23,7 +23,8 @@ def get_gpt_response(prompt: str, model: str = "gpt-4-0613") -> str:
         max_tokens=DEFAULT_MAX_TOKENS,
         top_p=DEFAULT_TOP_P,
         frequency_penalty=0,
-        presence_penalty=0
+        presence_penalty=0,
+        response_format={"type": "json_object"}
     )
     return response.choices[0].message.content
 
