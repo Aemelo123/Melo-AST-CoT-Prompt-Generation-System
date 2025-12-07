@@ -1,5 +1,6 @@
 """Main entry point for the experiment."""
 
+import json
 from melo_ast_cot import llm_client, securityeval, ast_parser
 
 def main() -> None:

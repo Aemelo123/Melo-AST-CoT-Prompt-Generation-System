@@ -193,7 +193,16 @@ Return ONLY the JSON object, no explanation."""
 
     response = llm_func(prompt)
 
-    # debug: print what the LLM returned
+    # strip markdown code blocks if present
+    response = response.strip()
+    if response.startswith("```json"):
+        response = response[7:]
+    if response.startswith("```"):
+        response = response[3:]
+    if response.endswith("```"):
+        response = response[:-3]
+    response = response.strip()
+
     print("---LLM Raw Response---")
     print(response)
 
