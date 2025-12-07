@@ -17,9 +17,12 @@ def assign_conditions(tasks: list) -> tuple[list, list]:
 
 
 def save_sample(sample: dict, iteration: int) -> Path:
-    iteration_dir = RESULTS_DIR / f"iteration_{iteration}"
-    iteration_dir.mkdir(parents=True, exist_ok=True)
-    path = iteration_dir / f"{sample['sample_id']}.json"
+    # Structure: results/iteration_X/MODEL/CONDITION/sample.json
+    model = sample["model"]
+    condition = sample["condition"]
+    sample_dir = RESULTS_DIR / f"iteration_{iteration}" / model / condition
+    sample_dir.mkdir(parents=True, exist_ok=True)
+    path = sample_dir / f"{sample['sample_id']}.json"
     path.write_text(json.dumps(sample, indent=2))
     return path
 
@@ -42,9 +45,9 @@ def generate_sample(task: dict, llm_func, iteration: int, condition: str, model_
 
     try:
         if condition == "AST_COT":
-            llm_json = ast_parser.get_llm_ast_json(parsed_prompt, llm_func)
+            llm_json, generated_code = ast_parser.get_llm_ast_json(parsed_prompt, llm_func)
             sample["llm_json_response"] = llm_json
-            sample["generated_code"] = ast_parser.json_to_code(llm_json)
+            sample["generated_code"] = generated_code
         else:
             sample["generated_code"] = nl_cot_baseline.get_nl_cot_code(parsed_prompt, llm_func)
         sample["success"] = True
