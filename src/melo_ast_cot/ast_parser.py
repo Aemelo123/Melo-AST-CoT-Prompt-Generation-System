@@ -267,6 +267,31 @@ def json_to_ast(node_json: dict) -> ast.AST:
 
         return ast.Compare(left=left, ops=ops, comparators=comparators)
 
+    # FunctionDef - function definition
+    elif node_type == "FunctionDef":
+        name = node_json["name"]
+        args_list = node_json.get("args", [])
+        body = [json_to_ast(item) for item in node_json.get("body", [])]
+
+        # Build arguments
+        arguments = ast.arguments(
+            posonlyargs=[],
+            args=[ast.arg(arg=arg) for arg in args_list],
+            vararg=None,
+            kwonlyargs=[],
+            kw_defaults=[],
+            kwarg=None,
+            defaults=[]
+        )
+
+        return ast.FunctionDef(
+            name=name,
+            args=arguments,
+            body=body,
+            decorator_list=[],
+            returns=None
+        )
+
     else:
         raise ValueError(f"Unknown node type: {node_type}")
 
