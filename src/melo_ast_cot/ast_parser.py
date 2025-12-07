@@ -153,3 +153,51 @@ def json_to_code(node_json: dict) -> str:
     node = json_to_ast(node_json)
     ast.fix_missing_locations(node)
     return ast.unparse(node)
+
+
+def get_llm_ast_json(parsed_prompt: dict, llm_func) -> dict:
+    # extract function info from parsed prompt
+    func_info = None
+    imports = []
+
+    for node in parsed_prompt["nodes"]:
+        if node["type"] == "FunctionDef":
+            func_info = node
+        elif node["type"] == "Import":
+            imports.extend(node["modules"])
+        elif node["type"] == "ImportFrom":
+            imports.append(node["module"])
+
+    if not func_info:
+        raise ValueError("No function found in parsed prompt")
+
+    prompt = f"""You are generating Python code as AST nodes in JSON format.
+
+Function to implement:
+- Name: {func_info["name"]}
+- Arguments: {func_info["args"]}
+- Description: {func_info["docstring"]}
+- Available imports: {imports}
+
+Generate the function body as a JSON object representing AST nodes.
+Use these node types:
+- With: {{"type": "With", "context_expr": <Call node>, "var": "variable_name", "body": [<nodes>]}}
+- Call: {{"type": "Call", "func": "function_name" or {{"type": "Attribute", "value": "module", "attr": "function"}}, "args": [<args>]}}
+- Assign: {{"type": "Assign", "target": "variable_name", "value": <node>}}
+- Return: {{"type": "Return", "value": "variable_name" or <node>}}
+- Constant: {{"type": "Constant", "value": "literal_value"}}
+
+Important: Use safe/secure functions. For example, use yaml.safe_load instead of yaml.load.
+
+Return ONLY the JSON object, no explanation."""
+
+    response = llm_func(prompt)
+
+    # debug: print what the LLM returned
+    print("---LLM Raw Response---")
+    print(response)
+
+    # parse the JSON from the response
+    response_json = json.loads(response)
+
+    return response_json
