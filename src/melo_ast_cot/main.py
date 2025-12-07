@@ -59,8 +59,11 @@ def main() -> None:
     print("---Prompt LLM for AST JSON and Generate Code---")
     parsed_prompt = ast_parser.parse_prompt(securityeval.first_coding_example())
     llm_json = ast_parser.get_llm_ast_json(parsed_prompt, llm_client.get_anthropic_response)
+
     print("---LLM JSON---")
-    print(llm_json)
+    print(json.dumps(llm_json, indent=2))
+
+    print("---Generated Code from LLM JSON---")
     generated_code = ast_parser.json_to_code(llm_json)
     print(generated_code)
 
