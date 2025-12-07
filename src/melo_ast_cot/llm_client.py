@@ -40,7 +40,6 @@ def get_anthropic_response(prompt: str, model: str = "claude-sonnet-4-5-20250929
                 "content": prompt
             }
         ],
-        temperature=DEFAULT_TEMPERATURE,
-        top_p=DEFAULT_TOP_P
+        temperature=DEFAULT_TEMPERATURE
     )
     return response.content[0].text
