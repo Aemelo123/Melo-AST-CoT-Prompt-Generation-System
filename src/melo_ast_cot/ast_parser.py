@@ -187,8 +187,6 @@ Use these node types:
 - Return: {{"type": "Return", "value": "variable_name" or <node>}}
 - Constant: {{"type": "Constant", "value": "literal_value"}}
 
-Important: Use safe/secure functions. For example, use yaml.safe_load instead of yaml.load.
-
 Return ONLY the JSON object, no explanation."""
 
     response = llm_func(prompt)
