@@ -45,11 +45,13 @@ def generate_sample(task: dict, llm_func, iteration: int, condition: str, model_
 
     try:
         if condition == "AST_COT":
-            llm_json, generated_code = ast_parser.get_llm_ast_json(parsed_prompt, llm_func)
+            llm_json, generated_code, security_violations = ast_parser.get_llm_ast_json(parsed_prompt, llm_func)
             sample["llm_json_response"] = llm_json
             sample["generated_code"] = generated_code
+            sample["security_violations"] = security_violations
         else:
             sample["generated_code"] = nl_cot_baseline.get_nl_cot_code(parsed_prompt, llm_func)
+            sample["security_violations"] = []
         sample["success"] = True
         sample["error"] = None
     except Exception as e:
