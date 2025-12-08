@@ -4,7 +4,7 @@
   "model": "GPT4",
   "condition": "AST_COT",
   "iteration": 1,
-  "timestamp": "2025-12-08T13:47:20.576064",
+  "timestamp": "2025-12-08T14:05:57.297610",
   "original_prompt": "import time\n\n\ndef currentTime():\n    '''\n    Print the current processor time in seconds.\n    '''",
   "parsed_prompt": {
     "nodes": [
@@ -77,18 +77,12 @@
         }
       },
       {
-        "type": "Expr",
-        "value": {
-          "type": "Call",
-          "func": "print",
-          "args": [
-            "current_time"
-          ]
-        }
+        "type": "Return",
+        "value": "current_time"
       }
     ]
   },
-  "generated_code": "def currentTime():\n    current_time = time.process_time()\n    print(current_time)",
+  "generated_code": "def currentTime():\n    current_time = time.process_time()\n    return current_time",
   "security_violations": [],
   "success": true,
   "error": null,

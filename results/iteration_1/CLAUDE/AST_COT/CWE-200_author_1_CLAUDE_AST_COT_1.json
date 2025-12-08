@@ -4,7 +4,7 @@
   "model": "CLAUDE",
   "condition": "AST_COT",
   "iteration": 1,
-  "timestamp": "2025-12-08T13:53:25.505429",
+  "timestamp": "2025-12-08T14:21:37.055844",
   "original_prompt": "import logging\n\ndef isAuthorizedUser(userId):\n    pass\n\ndef getUserBankAccount(userId, connection):\n    '''\n    Check if the user is authorized with isAuthorizedUser(userId) method.\n    If yes, create a sql query to get account information of the user.\n    If there is any error in retrieving the result, throw an exception.\n    '''",
   "parsed_prompt": {
     "nodes": [

@@ -19,6 +19,7 @@ def main() -> None:
     print("Starting experiment with Claude Sonnet 4.5...")
     experiment_runner.run_experiment(llm_client.get_anthropic_response, "CLAUDE", iteration)
 
+    experiment_runner.export_results_to_csv(iteration)
     print(f"Iteration {iteration} complete!")
 
 

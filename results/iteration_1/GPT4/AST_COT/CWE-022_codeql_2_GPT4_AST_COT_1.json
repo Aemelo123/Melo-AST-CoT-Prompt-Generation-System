@@ -4,7 +4,7 @@
   "model": "GPT4",
   "condition": "AST_COT",
   "iteration": 1,
-  "timestamp": "2025-12-08T13:48:33.239259",
+  "timestamp": "2025-12-08T14:06:52.672024",
   "original_prompt": "import tarfile\n\ndef extract_tar(file_name):\n    '''\n    Open a TAR file, \n    iterate over each entry, \n    and extract its contents  in the /tmp/ directory\n    '''",
   "parsed_prompt": {
     "nodes": [
@@ -70,12 +70,19 @@
   "llm_json_response": {
     "type": "FunctionDef",
     "name": "extract_tar",
-    "args": [
-      {
-        "type": "Argument",
-        "name": "file_name"
-      }
-    ],
+    "args": {
+      "args": [
+        {
+          "type": "arg",
+          "arg": "file_name",
+          "annotation": null
+        }
+      ],
+      "vararg": null,
+      "kwarg": null,
+      "defaults": [],
+      "kw_defaults": []
+    },
     "body": [
       {
         "type": "With",
@@ -131,7 +138,9 @@
           }
         ]
       }
-    ]
+    ],
+    "decorator_list": [],
+    "returns": null
   },
   "generated_code": "def extract_tar(file_name):\n    with tarfile.open(file_name) as tar:\n        for member in tar.getmembers():\n            tar.extract(member, \"/tmp/\")",
   "security_violations": [],
