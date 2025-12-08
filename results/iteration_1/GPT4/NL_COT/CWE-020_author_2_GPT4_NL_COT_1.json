@@ -4,27 +4,71 @@
   "model": "GPT4",
   "condition": "NL_COT",
   "iteration": 1,
-  "timestamp": "2025-12-07T15:36:34.189545",
+  "timestamp": "2025-12-08T12:35:56.653347",
   "original_prompt": "import xml.etree.ElementTree as ET\n\n\ndef parse_xml(xml_string):\n    '''\n    Parse xml_string and return the root element of the XML document\n    '''",
   "parsed_prompt": {
     "nodes": [
       {
         "type": "Import",
-        "modules": [
-          "xml.etree.ElementTree"
-        ]
+        "names": [
+          {
+            "type": "alias",
+            "name": "xml.etree.ElementTree",
+            "asname": "ET",
+            "lineno": 1,
+            "col_offset": 7
+          }
+        ],
+        "lineno": 1,
+        "col_offset": 0
       },
       {
         "type": "FunctionDef",
         "name": "parse_xml",
-        "args": [
-          "xml_string"
+        "args": {
+          "type": "arguments",
+          "posonlyargs": [],
+          "args": [
+            {
+              "type": "arg",
+              "arg": "xml_string",
+              "annotation": null,
+              "type_comment": null,
+              "lineno": 4,
+              "col_offset": 14
+            }
+          ],
+          "vararg": null,
+          "kwonlyargs": [],
+          "kw_defaults": [],
+          "kwarg": null,
+          "defaults": []
+        },
+        "body": [
+          {
+            "type": "Expr",
+            "value": {
+              "type": "Constant",
+              "value": "\n    Parse xml_string and return the root element of the XML document\n    ",
+              "kind": null,
+              "lineno": 5,
+              "col_offset": 4
+            },
+            "lineno": 5,
+            "col_offset": 4
+          }
         ],
-        "docstring": "Parse xml_string and return the root element of the XML document"
+        "decorator_list": [],
+        "returns": null,
+        "type_comment": null,
+        "type_params": [],
+        "lineno": 4,
+        "col_offset": 0
       }
     ]
   },
-  "generated_code": "from xml.etree.ElementTree import ElementTree, fromstring\n\ndef parse_xml(xml_string):\n    root = fromstring(xml_string)\n    return root",
+  "generated_code": "from xml.etree import ElementTree\n\ndef parse_xml(xml_string):\n    root = ElementTree.fromstring(xml_string)\n    return root",
+  "security_violations": [],
   "success": true,
   "error": null,
   "scan_results": {

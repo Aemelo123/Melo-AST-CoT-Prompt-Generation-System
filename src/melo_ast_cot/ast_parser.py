@@ -431,15 +431,29 @@ def _convert_value(value: Any, field_name: str = "") -> Any:
         return value
 
 
+_LEGACY_TYPES = {"Str": "Constant", "Num": "Constant", "Bytes": "Constant"}
+
+
 def json_to_ast(node_json: dict) -> ast.AST:
     node_type_name = node_json.get("type")
+    if node_type_name is None:
+        raise ValueError(f"Node missing 'type' field: {node_json}")
+
+    if node_type_name in _LEGACY_TYPES:
+        value = node_json.get("s") or node_json.get("n") or node_json.get("value")
+        return ast.Constant(value=value)
+
     node_class = getattr(ast, node_type_name, None)
 
     if node_class is None:
         raise ValueError(f"Unknown AST type: {node_type_name}")
 
+    fields = getattr(node_class, "_fields", ())
+    if not fields:
+        return node_class()
+
     kwargs = {}
-    for field in node_class._fields:
+    for field in fields:
         if field in node_json:
             value = node_json[field]
             kwargs[field] = _convert_value(value, field)
@@ -498,6 +512,18 @@ def _clean_json_response(response: str) -> str:
     if response.endswith("```"):
         response = response[:-3]
     response = response.strip()
+    # Find the first { or [ if response starts with text
+    if response and response[0] not in "{[":
+        brace = response.find("{")
+        bracket = response.find("[")
+        if brace == -1:
+            start = bracket
+        elif bracket == -1:
+            start = brace
+        else:
+            start = min(brace, bracket)
+        if start != -1:
+            response = response[start:]
     response = response.replace(": True", ": true")
     response = response.replace(": False", ": false")
     response = response.replace(": None", ": null")
@@ -624,24 +650,22 @@ Invalid JSON:
             for v in violations:
                 print(f"  [{v['severity']}] {v['message']}")
 
-        # Step 3: Try to convert JSON to code
-        try:
-            code = json_to_code(response_json)
-            return response_json, code, violations
-        except (ValueError, KeyError, TypeError) as e:
-            last_error = e
-            if attempt < max_retries - 1:
-                fix_prompt = f"""The following AST JSON has an error when converting to Python code. Fix the JSON structure and return ONLY the corrected JSON, nothing else.
+        # Step 3: Ask LLM to convert its AST JSON to Python code
+        code_prompt = f"""Convert this AST JSON to Python code. Return ONLY the code, no explanation.
 
-Error: {e}
-
-Invalid AST JSON:
 {json.dumps(response_json, indent=2)}"""
-                response = _clean_json_response(llm_func(fix_prompt))
-                print(f"---AST Fix Attempt {attempt + 1}---")
-                print(response[:500])
-                print("---End Fix Attempt---")
-                continue
-            raise last_error
+        code = llm_func(code_prompt)
+        code = code.strip()
+        if "```python" in code:
+            code = code.split("```python")[1].split("```")[0]
+        elif "```" in code:
+            code = code.split("```")[1].split("```")[0]
+        code = code.strip()
+
+        print("---Generated Code---")
+        print(code)
+        print("---End Generated Code---")
+
+        return response_json, code, violations
 
     raise last_error
