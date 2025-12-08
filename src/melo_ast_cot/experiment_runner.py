@@ -1,3 +1,4 @@
+import csv
 import json
 import random
 from datetime import datetime
@@ -66,9 +67,6 @@ def generate_sample(task: dict, llm_func, iteration: int, condition: str, model_
 def run_experiment(llm_func, model_name: str, iteration: int):
     tasks = securityeval.load_tasks()
     ast_tasks, nl_tasks = assign_conditions(tasks)
-    ast_tasks, nl_tasks = assign_conditions(tasks)
-    ast_tasks = ast_tasks[:10]  # only 10 samples each
-    nl_tasks = nl_tasks[:10]
 
     for task in ast_tasks:
         print(f"[{model_name}] Generating AST_COT sample for {task['ID']} iteration {iteration}...")
@@ -91,3 +89,39 @@ def run_experiment(llm_func, model_name: str, iteration: int):
         sample["scan_results"] = vulnerability_scanner.scan_code(sample["generated_code"])
         save_sample(sample, iteration)
         print(f"[{model_name}] Saved: {sample['sample_id']}")
+
+
+def export_results_to_csv(iteration: int) -> Path:
+    iteration_dir = RESULTS_DIR / f"iteration_{iteration}"
+    csv_dir = RESULTS_DIR / "csv_exports"
+    csv_dir.mkdir(parents=True, exist_ok=True)
+    rows = []
+
+    for f in sorted(iteration_dir.rglob("*.json")):
+        data = json.loads(f.read_text())
+        scan = data.get("scan_results", {})
+
+        rows.append({
+            "sample_id": data.get("sample_id", ""),
+            "task_id": data.get("task_id", ""),
+            "model": data.get("model", ""),
+            "condition": data.get("condition", ""),
+            "iteration": data.get("iteration", ""),
+            "success": data.get("success", False),
+            "num_vulnerabilities": scan.get("num_vulnerabilities", 0),
+            "loc": scan.get("loc", 0),
+            "vulnerability_density": scan.get("vulnerability_density", 0),
+            "security_violations_count": len(data.get("security_violations", [])),
+            "findings": json.dumps(scan.get("findings", [])),
+            "timestamp": data.get("timestamp", ""),
+        })
+
+    csv_path = csv_dir / f"experiment_results_iteration_{iteration}.csv"
+    with open(csv_path, "w", newline="") as f:
+        if rows:
+            writer = csv.DictWriter(f, fieldnames=rows[0].keys())
+            writer.writeheader()
+            writer.writerows(rows)
+
+    print(f"Exported {len(rows)} samples to {csv_path}")
+    return csv_path
