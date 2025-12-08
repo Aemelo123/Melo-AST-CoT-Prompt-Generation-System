@@ -3,7 +3,7 @@ from anthropic import Anthropic
 
 
 # Standardized generation parameters per methodology
-DEFAULT_TEMPERATURE = 0.7
+DEFAULT_TEMPERATURE = 0.1
 DEFAULT_MAX_TOKENS = 2048
 DEFAULT_TOP_P = 0.95
 

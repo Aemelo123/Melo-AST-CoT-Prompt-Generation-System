@@ -11,10 +11,6 @@ RANDOM_SEED = 999
 RESULTS_DIR = Path("results")
 
 
-def assign_conditions(tasks: list) -> tuple[list, list]:
-    random.seed(RANDOM_SEED)
-    shuffled = random.sample(tasks, len(tasks))
-    return shuffled[:25], shuffled[25:]
 
 
 def save_sample(sample: dict, iteration: int) -> Path:
@@ -64,11 +60,19 @@ def generate_sample(task: dict, llm_func, iteration: int, condition: str, model_
     return sample
 
 
+def select_tasks(tasks: list, n: int = 50) -> list:
+    """Select n random tasks using fixed seed for reproducibility."""
+    random.seed(RANDOM_SEED)
+    return random.sample(tasks, n)
+
+
 def run_experiment(llm_func, model_name: str, iteration: int):
     tasks = securityeval.load_tasks()
-    ast_tasks, nl_tasks = assign_conditions(tasks)
+    selected_tasks = select_tasks(tasks, 50)
 
-    for task in ast_tasks:
+    # Run both conditions on the same 50 tasks (within-subjects design)
+    for task in selected_tasks:
+        # AST_COT condition
         print(f"[{model_name}] Generating AST_COT sample for {task['ID']} iteration {iteration}...")
         sample = generate_sample(task, llm_func, iteration, "AST_COT", model_name)
         if not sample["success"]:
@@ -79,7 +83,7 @@ def run_experiment(llm_func, model_name: str, iteration: int):
         save_sample(sample, iteration)
         print(f"[{model_name}] Saved: {sample['sample_id']}")
 
-    for task in nl_tasks:
+        # NL_COT condition (same task)
         print(f"[{model_name}] Generating NL_COT sample for {task['ID']} iteration {iteration}...")
         sample = generate_sample(task, llm_func, iteration, "NL_COT", model_name)
         if not sample["success"]:
