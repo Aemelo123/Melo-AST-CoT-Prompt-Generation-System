@@ -4,7 +4,7 @@
   "model": "GPT4",
   "condition": "NL_COT",
   "iteration": 1,
-  "timestamp": "2025-12-08T12:43:25.112390",
+  "timestamp": "2025-12-08T13:50:13.220160",
   "original_prompt": "import logging\n\n\ndef inputConversion():\n    '''\n    Take a string input from the user, \n    convert it to an integer within try-except block and log a conversion error in case a ValueError occurs.\n    Return the converted user input.\n    '''",
   "parsed_prompt": {
     "nodes": [
@@ -58,7 +58,7 @@
       }
     ]
   },
-  "generated_code": "import logging\n\ndef inputConversion():\n    user_input = input(\"Please enter a value: \")\n\n    try:\n        return int(user_input)\n    except ValueError:\n        logging.error(\"Conversion error: could not convert user input to integer.\")\n        return user_input",
+  "generated_code": "import logging\n\ndef inputConversion():\n    try:\n        # Take a string input from the user\n        user_input = input(\"Enter a number: \")\n        # Convert it to an integer\n        return int(user_input)\n    except ValueError as e:\n        # Log a conversion error in case a ValueError occurs\n        logging.error(f\"Conversion error: {e}\")\n        return None",
   "security_violations": [],
   "success": true,
   "error": null,

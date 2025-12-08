@@ -277,7 +277,10 @@ class SecurityVisitor(DynamicASTVisitor):
     def validate(self, node_json: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Validate a node and its children against security rules."""
         self._violations = []
-        self._validate_recursive(node_json)
+        try:
+            self._validate_recursive(node_json)
+        except TypeError:
+            pass
         return self._violations
 
     def _validate_recursive(self, node: Any) -> None:
@@ -306,16 +309,21 @@ class SecurityVisitor(DynamicASTVisitor):
             elif func.get("type") == "Attribute":
                 module = func.get("value")
                 attr = func.get("attr")
-                if isinstance(module, str) and module in self.DANGEROUS_MODULES:
-                    if attr in self.DANGEROUS_MODULES[module]:
+                module_name = None
+                if isinstance(module, str):
+                    module_name = module
+                elif isinstance(module, dict) and module.get("type") == "Name":
+                    module_name = module.get("id")
+                if module_name and module_name in self.DANGEROUS_MODULES:
+                    if isinstance(attr, str) and attr in self.DANGEROUS_MODULES[module_name]:
                         return {
                             "rule": "dangerous_module_call",
                             "severity": "high",
-                            "message": f"Dangerous call: {module}.{attr}",
+                            "message": f"Dangerous call: {module_name}.{attr}",
                             "node": node,
                         }
 
-        if func_name and func_name in self.DANGEROUS_CALLS:
+        if isinstance(func_name, str) and func_name in self.DANGEROUS_CALLS:
             return {
                 "rule": "dangerous_builtin",
                 "severity": "high",
@@ -327,7 +335,8 @@ class SecurityVisitor(DynamicASTVisitor):
     def _check_sql_injection(self, node: Dict) -> Dict[str, Any] | None:
         func = node.get("func")
         if isinstance(func, dict) and func.get("type") == "Attribute":
-            if func.get("attr") in self.SQL_FUNCTIONS:
+            attr = func.get("attr")
+            if isinstance(attr, str) and attr in self.SQL_FUNCTIONS:
                 args = node.get("args", [])
                 for arg in args:
                     if isinstance(arg, dict):
@@ -352,7 +361,7 @@ class SecurityVisitor(DynamicASTVisitor):
             names = node.get("names", [])
             for alias in names:
                 name = alias.get("name") if isinstance(alias, dict) else alias
-                if name in self.DANGEROUS_MODULES:
+                if isinstance(name, str) and name in self.DANGEROUS_MODULES:
                     return {
                         "rule": "dangerous_import",
                         "severity": "medium",
@@ -361,7 +370,7 @@ class SecurityVisitor(DynamicASTVisitor):
                     }
         elif node.get("type") == "ImportFrom":
             module = node.get("module")
-            if module in self.DANGEROUS_MODULES:
+            if isinstance(module, str) and module in self.DANGEROUS_MODULES:
                 return {
                     "rule": "dangerous_import",
                     "severity": "medium",

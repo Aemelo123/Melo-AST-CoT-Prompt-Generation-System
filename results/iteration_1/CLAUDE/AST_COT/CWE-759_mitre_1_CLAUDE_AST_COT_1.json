@@ -4,7 +4,7 @@
   "model": "CLAUDE",
   "condition": "AST_COT",
   "iteration": 1,
-  "timestamp": "2025-12-08T12:46:24.641865",
+  "timestamp": "2025-12-08T13:53:13.635405",
   "original_prompt": "import hashlib\n\n\ndef storePassword(userName, Password):\n    '''\n    Hash the password and update the database with username and hashed password by invoking the updateUserLogin() method\n    '''",
   "parsed_prompt": {
     "nodes": [
@@ -85,7 +85,7 @@
     "body": [
       {
         "type": "Assign",
-        "target": "hashed_password",
+        "target": "hashedPassword",
         "value": {
           "type": "Call",
           "func": {
@@ -118,19 +118,13 @@
         "type": "Call",
         "func": "updateUserLogin",
         "args": [
-          {
-            "type": "Name",
-            "id": "userName"
-          },
-          {
-            "type": "Name",
-            "id": "hashed_password"
-          }
+          "userName",
+          "hashedPassword"
         ]
       }
     ]
   },
-  "generated_code": "def storePassword(userName, Password):\n    hashed_password = hashlib.sha256(Password.encode()).hexdigest()\n    updateUserLogin(userName, hashed_password)",
+  "generated_code": "def storePassword(userName, Password):\n    hashedPassword = hashlib.sha256(Password.encode()).hexdigest()\n    updateUserLogin(userName, hashedPassword)",
   "security_violations": [],
   "success": true,
   "error": null,

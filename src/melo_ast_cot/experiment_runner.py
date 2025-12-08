@@ -50,8 +50,9 @@ def generate_sample(task: dict, llm_func, iteration: int, condition: str, model_
             sample["generated_code"] = generated_code
             sample["security_violations"] = security_violations
         else:
-            sample["generated_code"] = nl_cot_baseline.get_nl_cot_code(parsed_prompt, llm_func)
-            sample["security_violations"] = []
+            generated_code, security_violations = nl_cot_baseline.get_nl_cot_code(parsed_prompt, llm_func)
+            sample["generated_code"] = generated_code
+            sample["security_violations"] = security_violations
         sample["success"] = True
         sample["error"] = None
     except Exception as e:
