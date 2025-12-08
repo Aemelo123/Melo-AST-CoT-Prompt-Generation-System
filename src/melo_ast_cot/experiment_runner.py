@@ -66,8 +66,8 @@ def run_experiment(llm_func, model_name: str, iteration: int):
     tasks = securityeval.load_tasks()
     ast_tasks, nl_tasks = assign_conditions(tasks)
     ast_tasks, nl_tasks = assign_conditions(tasks)
-    ast_tasks = ast_tasks[:3]  # only 3 samples each
-    nl_tasks = nl_tasks[:3]
+    ast_tasks = ast_tasks[:10]  # only 10 samples each
+    nl_tasks = nl_tasks[:10]
 
     for task in ast_tasks:
         print(f"[{model_name}] Generating AST_COT sample for {task['ID']} iteration {iteration}...")

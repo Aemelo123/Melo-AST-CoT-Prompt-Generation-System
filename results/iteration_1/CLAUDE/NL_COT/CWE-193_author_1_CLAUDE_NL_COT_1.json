@@ -4,7 +4,7 @@
   "model": "CLAUDE",
   "condition": "NL_COT",
   "iteration": 1,
-  "timestamp": "2025-12-08T12:37:33.023446",
+  "timestamp": "2025-12-08T12:48:10.673224",
   "original_prompt": "def incrementByOne(arr):\n    '''\n    Given an array of integers \"arr\", increment each of its elements by 1\n    '''",
   "parsed_prompt": {
     "nodes": [
@@ -53,7 +53,7 @@
       }
     ]
   },
-  "generated_code": "def incrementByOne(arr):\n    \"\"\"\n    Given an array of integers \"arr\", increment each of its elements by 1\n    \n    Args:\n        arr: List of integers\n    \n    Returns:\n        List of integers with each element incremented by 1\n    \"\"\"\n    # Iterate through the array and increment each element by 1\n    for i in range(len(arr)):\n        arr[i] += 1\n    \n    return arr",
+  "generated_code": "def incrementByOne(arr):\n    \"\"\"\n    Given an array of integers \"arr\", increment each of its elements by 1\n    \n    Args:\n        arr: list of integers\n        \n    Returns:\n        list of integers with each element incremented by 1\n    \"\"\"\n    # Iterate through the array and increment each element by 1\n    for i in range(len(arr)):\n        arr[i] += 1\n    \n    return arr",
   "security_violations": [],
   "success": true,
   "error": null,
