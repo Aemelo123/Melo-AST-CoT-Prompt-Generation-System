@@ -112,7 +112,7 @@ def run_experiment(llm_func, model_name: str, iteration: int):
             save_sample(sample, iteration)
             print(f"[{model_name}] Saved: {sample['sample_id']}")
 
-
+# exporting to csv for R analysis
 def export_results_to_csv(iteration: int) -> Path:
     iteration_dir = RESULTS_DIR / f"iteration_{iteration}"
     csv_dir = RESULTS_DIR / "csv_exports"
