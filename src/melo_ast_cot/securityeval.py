@@ -18,6 +18,7 @@ RANDOM_SEED = 999
 
 
 def load_tasks(num_tasks: int = 50) -> list:
+    # (Siddiq & Santos, 2022)
     dataset = load_dataset("s2e-lab/SecurityEval")
     all_tasks = list(dataset["train"])
 
