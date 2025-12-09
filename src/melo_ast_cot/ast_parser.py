@@ -11,6 +11,11 @@ DynamicASTVisitor:
     have to alter their existing code.
 
 References:
+    - Li, J., Li, G., Li, Y., & Jin, Z. (2025). Structured chain-of-thought prompting for
+        code generation. ACM Transactions on Software Engineering and Methodology, 34(2),
+        Article 37. https://doi.org/10.1145/3690635
+        (Where the idea stems from for the abstract syntax tree)
+
     - Gamma et al., "Design Patterns" (1994) - Visitor Pattern
     - Martin Fowler, Patterns of Enterprise Application Architecture (Addison-Wesley, 2002),
         pp. 480-485.

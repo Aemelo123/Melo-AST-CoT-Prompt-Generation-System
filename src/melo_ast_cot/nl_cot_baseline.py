@@ -1,6 +1,40 @@
-# Zero-shot Chain-of-Thought baseline
-# Based on: Kojima et al. (2022) "Large Language Models are Zero-Shot Reasoners"
-# arXiv: https://arxiv.org/abs/2205.11916
+"""
+Natural Language Zero-Shot Chain-of-Thought Baseline
+
+This implements the baseline NL_COT condition.
+
+Zero-Shot CoT Prompting:
+
+    Utilizes the "Let's think step by step" prompt phrase to encourage a model to reason
+    in order to produce an answer to a problem without providing zero-shot examples
+    (Kojima et al., 2022) as is done with the previous approach of Wei et al.'s (2022)
+    research that showed intermediate reasoning steps improved performance of Large
+    Language Models (LLMs) for performing complex tasks.
+
+Security Validation (Fair Comparison):
+
+    In order to provide a fair comparison of results between the two different conditions,
+    we perform the same Security Visitor validation upon the output of the NL_COT condition
+    that we do with the output of the AST_COT condition. The only difference is when
+    validation takes place:
+
+    - AST_COT: Validates the LLM's structural reasoning BEFORE code synthesis
+              (intermediate representation validation)
+    - NL_COT:  Validates AFTER code generation (post-hoc validation)
+
+    Both conditions use identical security rules and retry logic, ensuring any
+    performance differences reflect the prompting strategy, not validation coverage.
+
+References:
+    - Wei, J., Wang, X., Schuurmans, D., Bosma, M., Ichter, B., Xia, F., Chi, E., Le, Q.,
+      & Zhou, D. (2022). Chain-of-thought prompting elicits reasoning in large language
+      models. Advances in Neural Information Processing Systems, 35, 24824-24837.
+      https://arxiv.org/abs/2201.11903
+
+    - Kojima, T., Gu, S. S., Reid, M., Matsuo, Y., & Iwasawa, Y. (2022). Large language
+      models are zero-shot reasoners. Advances in Neural Information Processing Systems,
+      35, 22199-22213. https://arxiv.org/abs/2205.11916
+"""
 
 from melo_ast_cot.ast_parser import _extract_imports, _extract_args, parse_prompt as parse_code, SecurityVisitor
 
