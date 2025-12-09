@@ -15,7 +15,8 @@ References:
         pp. 480-485.
     - Python Software Foundation. "ast — Abstract Syntax Trees." Python 3.x Documentation.
         https://docs.python.org/3/library/ast.html
-    - Wirth, N. (1976). Algorithms + Data Structures = Programs. Prentice-Hall. - DFS tree traversal
+    - GeeksforGeeks. "DFS Traversal of a Tree Using Recursion."
+        https://www.geeksforgeeks.org/dsa/dfs-traversal-of-a-tree-using-recursion/
 """
 
 import ast
@@ -95,7 +96,7 @@ class DynamicASTVisitor:
         """
         Recursively process any value from an AST node field.
 
-        DFS tree traversal (Wirth, 1976). Handles AST nodes, lists, and primitives.
+        Pre-order DFS tree traversal (GeeksforGeeks). Handles AST nodes, lists, and primitives.
         """
         if isinstance(value, ast.AST):
             return self.visit(value)
@@ -167,6 +168,9 @@ class DynamicASTVisitor:
     def parse_tree(self, code: str) -> Dict[str, Any]:
         """
         Parse code string into full recursive AST representation.
+
+        The reason I used DFS is because I am more comfortable with DFS here and it was 
+        closer to the python AST way of traversing the tree. 
         """
         # Reset metrics
         self._visit_count = 0
@@ -199,7 +203,7 @@ class DynamicASTVisitor:
         """
         Parse a node with depth tracking for complexity analysis.
 
-        DFS tree traversal (Wirth, 1976).
+        Pre-order DFS tree traversal (GeeksforGeeks).
         """
         self._max_depth = max(self._max_depth, depth)
 
