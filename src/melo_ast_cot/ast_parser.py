@@ -441,7 +441,12 @@ _security_visitor = SecurityVisitor()
 # PUBLIC API FUNCTIONS
 
 def code_to_ast_string(code: str) -> str:
-    """Convert code to AST dump string (legacy function)."""
+    """Convert code to AST dump string (legacy function).
+
+    References:
+        - Python Software Foundation. "ast — Abstract Syntax Trees." Python 3.x Documentation.
+          https://docs.python.org/3/library/ast.html
+    """
     tree = ast.parse(code)
     return ast.dump(tree, indent=2)
 
