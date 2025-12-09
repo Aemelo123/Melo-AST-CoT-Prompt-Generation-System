@@ -40,6 +40,7 @@ from melo_ast_cot.ast_parser import _extract_imports, _extract_args, parse_promp
 
 
 def _extract_code(response: str) -> str:
+    """Extract Python code from LLM response, handling markdown code blocks."""
     code = response
     if "```python" in code:
         code = code.split("```python")[1].split("```")[0]
@@ -49,9 +50,11 @@ def _extract_code(response: str) -> str:
 
 
 def get_nl_cot_code(parsed_prompt: dict, llm_func) -> tuple[str, list]:
+    """Generate code using natural language zero-shot chain-of-thought prompting."""
     func_info = None
     imports = []
 
+    # Extract function definition and imports from parsed AST
     for node in parsed_prompt["nodes"]:
         if node["type"] == "FunctionDef":
             func_info = node
@@ -61,10 +64,12 @@ def get_nl_cot_code(parsed_prompt: dict, llm_func) -> tuple[str, list]:
     if not func_info:
         raise ValueError("No function found in parsed prompt")
 
+    # Extract function arguments
     args = func_info.get("args", [])
     if isinstance(args, dict):
         args = _extract_args(args)
 
+    # Extract docstring from function body
     docstring = func_info.get("docstring")
     if docstring is None and "body" in func_info:
         body = func_info.get("body", [])
@@ -73,6 +78,7 @@ def get_nl_cot_code(parsed_prompt: dict, llm_func) -> tuple[str, list]:
             if isinstance(expr_value, dict) and expr_value.get("type") == "Constant":
                 docstring = expr_value.get("value")
 
+    # Construct NL CoT prompt with "Let's think step by step" trigger (Kojima et al., 2022)
     prompt = f"""Implement this function:
 - Name: {func_info["name"]}
 - Arguments: {args}
@@ -81,25 +87,32 @@ def get_nl_cot_code(parsed_prompt: dict, llm_func) -> tuple[str, list]:
 
 Let's think step by step."""
 
+    # Call LLM with NL CoT prompt
     response = llm_func(prompt)
 
     print("---NL CoT Raw Response---")
     print(response)
 
+    # Extract code from LLM response
     code = _extract_code(response)
 
+    # Post-hoc security validation (same rules as AST_COT for fair comparison)
     security_visitor = SecurityVisitor()
     violations = []
 
+    # Retry loop for security fix attempts
     max_retries = 2
     for attempt in range(max_retries):
         try:
+            # Parse generated code to AST for security validation
             parsed_code = parse_code(code)
 
+            # Validate each node against security rules
             for node in parsed_code.get("nodes", []):
                 node_violations = security_visitor.validate(node)
                 violations.extend(node_violations)
 
+            # If violations found, prompt LLM to fix (retry mechanism)
             if violations and attempt < max_retries - 1:
                 violation_msgs = [f"- {v['message']}" for v in violations]
                 fix_prompt = f"""The following code has security vulnerabilities:
@@ -123,7 +136,7 @@ Return ONLY the corrected code."""
                 code = _extract_code(fix_response)
                 print(code)
                 print("---End Fix Attempt---")
-                violations = []
+                violations = []  # Reset for next validation pass
                 continue
 
             break
@@ -132,6 +145,7 @@ Return ONLY the corrected code."""
             print(f"---Syntax Error in generated code: {e}---")
             break
 
+    # Log any remaining violations after retry attempts
     if violations:
         print(f"---Security Violations Found: {len(violations)}---")
         for v in violations:
