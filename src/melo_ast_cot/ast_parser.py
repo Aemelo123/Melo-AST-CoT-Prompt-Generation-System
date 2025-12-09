@@ -2,12 +2,13 @@
 Dynamic AST Parser with Registry Pattern and Security Validation
 
 DynamicASTVisitor:
-    Using the Registry Pattern (Fowler, 2002), The AST parser is able to dispatch the 
-    handler in O(1) time. Instead of using about 70 different conditions to match AST node 
-    classes, the AST nodes' handlers are registered by class in a hash table that can be 
-    searched in constant time as the AST tree is traversed. This design is scalable and 
-    easy to extend because all you have to do is add a new handler to the registry; 
-    no changes need to be made to your existing code.
+    With Fowler's (2002) Registry Pattern, the AST Parser can call on the correct handler 
+    in O(1) time. Instead of having to go through approximately 70 conditionals to see 
+    which class of AST Node was matched, we register each AST Node type's handler by class 
+    in a Hash Table so when we traverse the AST Tree, we can find it in constant time. Using 
+    this pattern makes the design both scalable and extensible. If a developer wants to create 
+    a new Handler for an AST Node Type, they only have to add it to the Registry and do not 
+    have to alter their existing code.
 
 References:
     - Gamma et al., "Design Patterns" (1994) - Visitor Pattern
@@ -680,8 +681,8 @@ def get_llm_ast_json(parsed_prompt: dict, llm_func) -> tuple[dict, str, list]:
             if isinstance(expr_value, dict) and expr_value.get("type") == "Constant":
                 docstring = expr_value.get("value")
 
-    # Prompt going to stay static, because if we provide the dynamic list, it's going to get too complicated and i could see it 
-    # confusing the LLM more than helping it.
+    # Prompt going to stay static, because if we provide the dynamic list, it's going to get 
+    # too complicated and i could see it confusing the LLM more than helping it.
     prompt = f"""You are generating Python code as AST nodes in JSON format.
     
 Function to implement:
