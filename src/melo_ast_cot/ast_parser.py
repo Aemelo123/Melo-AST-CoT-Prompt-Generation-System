@@ -74,7 +74,6 @@ class DynamicASTVisitor:
 
 
     def _process_value(self, value: Any) -> Any:
-        """Recursively process AST fields."""
         if isinstance(value, ast.AST):
             return self.visit(value)
         if isinstance(value, list):
@@ -83,7 +82,6 @@ class DynamicASTVisitor:
 
 
     def visit(self, node: ast.AST) -> Dict[str, Any]:
-        """Dispatch to a handler, creating one if the type was added in later Python versions."""
         self._visit_count += 1
 
         node_type = type(node)
@@ -91,14 +89,12 @@ class DynamicASTVisitor:
         print(f"DEBUG: visiting {name}")
         self._type_counts[name] = self._type_counts.get(name, 0) + 1
 
-        # Prefer user-defined handlers
         if node_type in self._custom_handlers:
             print(f"DEBUG: using custom handler for {name}")
             return self._custom_handlers[node_type](node)
 
         handler = self._handlers.get(node_type)
         if handler is None:
-            # Node type introduced in a newer Python version
             print(f"DEBUG: no handler found, generating one for {name}")
             handler = self._generate_handler(node_type)
             self._handlers[node_type] = handler
@@ -107,19 +103,16 @@ class DynamicASTVisitor:
 
 
     def register(self, node_type: Type[ast.AST]):
-        """Decorator for registering custom handlers."""
         def decorator(func: Callable[[ast.AST], Dict[str, Any]]):
             self._custom_handlers[node_type] = func
             return func
         return decorator
 
     def register_handler(self, node_type: Type[ast.AST], handler: Callable[[ast.AST], Dict[str, Any]]) -> None:
-        """Programmatically register a custom handler."""
         self._custom_handlers[node_type] = handler
 
 
     def parse_tree(self, code: str) -> Dict[str, Any]:
-        """Parse Python code into a structured AST representation."""
         print("DEBUG: parse_tree called")
         self._visit_count = 0
         self._max_depth = 0
@@ -145,7 +138,6 @@ class DynamicASTVisitor:
         }
 
     def _walk(self, node: ast.AST, depth: int) -> Dict[str, Any]:
-        """Recursive traversal with depth tracking."""
         print(f"DEBUG: walking at depth {depth}")
         self._max_depth = max(self._max_depth, depth)
         data = self.visit(node)
@@ -154,7 +146,6 @@ class DynamicASTVisitor:
 
 
     def get_metrics(self) -> Dict[str, Any]:
-        """Return collected parsing metrics."""
         return {
             "visit_count": self._visit_count,
             "max_depth": self._max_depth,
@@ -218,26 +209,19 @@ class SecurityVisitor(DynamicASTVisitor):
 
     SQL_FUNCTIONS = {"execute", "executemany", "raw"}
 
-    def __init__(self):
+    def __init__(self, debug: bool = False):
         super().__init__()
         self._security_rules: Dict[str, List[Callable]] = {}
         self._violations: List[Dict[str, Any]] = []
+        self.debug = debug
+
         self._register_default_rules()
 
-    def _register_default_rules(self) -> None:
-        """
-        Register security rules based on well-known vulnerability patterns.
+    def _log(self, *msg):
+        if self.debug:
+            print("[SecurityVisitor]", *msg)
 
-        Security rule references:
-            - MITRE CWE-78: OS Command Injection
-              https://cwe.mitre.org/data/definitions/78.html
-            - MITRE CWE-89: SQL Injection
-              https://cwe.mitre.org/data/definitions/89.html
-            - OWASP Command Injection
-              https://owasp.org/www-community/attacks/Command_Injection
-            - OWASP Code Injection (eval/exec)
-              https://owasp.org/www-community/attacks/Code_Injection
-        """
+    def _register_default_rules(self) -> None:
         self.add_rule("Call", self._check_dangerous_call)
         self.add_rule("Call", self._check_sql_injection)
         self.add_rule("Import", self._check_dangerous_import)
@@ -248,129 +232,150 @@ class SecurityVisitor(DynamicASTVisitor):
             self._security_rules[node_type] = []
         self._security_rules[node_type].append(rule_func)
 
+
     def validate(self, node_json: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Validate a node and its children against security rules."""
         self._violations = []
-        try:
-            self._validate_recursive(node_json)
-        except TypeError:
-            pass
+        self._log("Starting validation")
+
+        stack = [node_json]
+
+        while stack:
+            node = stack.pop()
+
+            if isinstance(node, dict):
+                node_type = node.get("type")
+                self._log("Visiting:", node_type)
+
+                # apply rules for this node type
+                if node_type in self._security_rules:
+                    for rule in self._security_rules[node_type]:
+                        result = rule(node)
+                        if result:
+                            self._log("  Violation:", result["rule"])
+                            self._violations.append(result)
+
+                # push child structures for later
+                for value in node.values():
+                    if isinstance(value, (dict, list)):
+                        stack.append(value)
+
+            elif isinstance(node, list):
+                for item in node:
+                    if isinstance(item, (dict, list)):
+                        stack.append(item)
+
+        self._log("Validation complete. Found", len(self._violations), "issues.")
         return self._violations
 
-    def _validate_recursive(self, node: Any) -> None:
-        # another recursive function to traverse the tree and apply rules
-        if isinstance(node, dict):
-            node_type = node.get("type")
-            if node_type and node_type in self._security_rules:
-                for rule in self._security_rules[node_type]:
-                    violation = rule(node)
-                    if violation:
-                        self._violations.append(violation)
-            for value in node.values():
-                self._validate_recursive(value)
-        elif isinstance(node, list):
-            for item in node:
-                self._validate_recursive(item)
+    # SECURITY RULES
 
-    def _check_dangerous_call(self, node: Dict) -> Dict[str, Any] | None:
-        """
-        Detect dangerous function calls (CWE-78, OWASP Command/Code Injection).
-
-        Checks for:
-        - Dangerous builtins: eval, exec, compile (OWASP Code Injection)
-        - Dangerous module calls: os.system, subprocess.call (CWE-78)
-        """
+    def _check_dangerous_call(self, node: Dict[str, Any]) -> Dict[str, Any] | None:
+        self._log("Checking dangerous call")
         func = node.get("func")
         func_name = None
 
+        # attempt straightforward extraction
         if isinstance(func, str):
             func_name = func
         elif isinstance(func, dict):
-            if func.get("type") == "Name":
+            node_type = func.get("type")
+
+            if node_type == "Name":
                 func_name = func.get("id")
-            elif func.get("type") == "Attribute":
+
+            elif node_type == "Attribute":
                 module = func.get("value")
                 attr = func.get("attr")
+
                 module_name = None
-                if isinstance(module, str):
-                    module_name = module
-                elif isinstance(module, dict) and module.get("type") == "Name":
+                if isinstance(module, dict) and module.get("type") == "Name":
                     module_name = module.get("id")
-                if module_name and module_name in self.DANGEROUS_MODULES:
-                    if isinstance(attr, str) and attr in self.DANGEROUS_MODULES[module_name]:
+
+                # check module-based dangerous calls
+                if module_name in self.DANGEROUS_MODULES:
+                    if attr in self.DANGEROUS_MODULES[module_name]:
                         return {
                             "rule": "dangerous_module_call",
                             "severity": "high",
-                            "message": f"Dangerous call: {module_name}.{attr}",
+                            "message": f"Dangerous call detected: {module_name}.{attr}",
                             "node": node,
                         }
 
-        if isinstance(func_name, str) and func_name in self.DANGEROUS_CALLS:
+        # check builtin dangerous calls
+        if func_name in self.DANGEROUS_CALLS:
             return {
                 "rule": "dangerous_builtin",
                 "severity": "high",
-                "message": f"Dangerous builtin: {func_name}",
+                "message": f"Dangerous builtin detected: {func_name}",
                 "node": node,
             }
+
         return None
 
-    def _check_sql_injection(self, node: Dict) -> Dict[str, Any] | None:
-        """
-        Detect SQL injection patterns (CWE-89).
+    def _check_sql_injection(self, node: Dict[str, Any]) -> Dict[str, Any] | None:
+        self._log("Checking SQL injection")
 
-        Flags string concatenation (+, %) or f-strings in SQL query arguments,
-        which are common injection vectors per MITRE CWE-89 guidance.
-        """
         func = node.get("func")
-        if isinstance(func, dict) and func.get("type") == "Attribute":
-            attr = func.get("attr")
-            if isinstance(attr, str) and attr in self.SQL_FUNCTIONS:
-                args = node.get("args", [])
-                for arg in args:
-                    if isinstance(arg, dict):
-                        if arg.get("type") == "BinOp" and arg.get("op") in ("+", "%"):
-                            return {
-                                "rule": "sql_injection",
-                                "severity": "critical",
-                                "message": "Potential SQL injection: string concatenation in query",
-                                "node": node,
-                            }
-                        if arg.get("type") == "JoinedStr":
-                            return {
-                                "rule": "sql_injection",
-                                "severity": "critical",
-                                "message": "Potential SQL injection: f-string in query",
-                                "node": node,
-                            }
+        if not isinstance(func, dict):
+            return None
+
+        if func.get("type") != "Attribute":
+            return None
+
+        attr = func.get("attr")
+        if attr not in self.SQL_FUNCTIONS:
+            return None
+
+        args = node.get("args", [])
+
+        for arg in args:
+            if not isinstance(arg, dict):
+                continue
+
+            # concatenation-based queries
+            if arg.get("type") == "BinOp" and arg.get("op") in ("+", "%"):
+                return {
+                    "rule": "sql_injection",
+                    "severity": "critical",
+                    "message": "String concatenation detected in SQL query",
+                    "node": node,
+                }
+
+            # f-string SQL
+            if arg.get("type") == "JoinedStr":
+                return {
+                    "rule": "sql_injection",
+                    "severity": "critical",
+                    "message": "F-string detected in SQL query",
+                    "node": node,
+                }
+
         return None
 
-    def _check_dangerous_import(self, node: Dict) -> Dict[str, Any] | None:
-        """
-        Flag imports of modules commonly associated with security vulnerabilities.
+    def _check_dangerous_import(self, node: Dict[str, Any]) -> Dict[str, Any] | None:
+        self._log("Checking dangerous import")
 
-        Modules like os, subprocess, pickle can enable command injection (CWE-78)
-        or arbitrary code execution if misused.
-        """
         if node.get("type") == "Import":
-            names = node.get("names", [])
-            for alias in names:
+            for alias in node.get("names", []):
                 name = alias.get("name") if isinstance(alias, dict) else alias
-                if isinstance(name, str) and name in self.DANGEROUS_MODULES:
+                if name in self.DANGEROUS_MODULES:
                     return {
                         "rule": "dangerous_import",
                         "severity": "medium",
-                        "message": f"Importing potentially dangerous module: {name}",
+                        "message": f"Dangerous module import: {name}",
                         "node": node,
                     }
+
         elif node.get("type") == "ImportFrom":
             module = node.get("module")
-            if isinstance(module, str) and module in self.DANGEROUS_MODULES:
+            if module in self.DANGEROUS_MODULES:
                 return {
                     "rule": "dangerous_import",
                     "severity": "medium",
-                    "message": f"Importing from dangerous module: {module}",
+                    "message": f"Dangerous import from module: {module}",
                     "node": node,
                 }
+
         return None
 
 
