@@ -32,204 +32,140 @@ from typing import Any, Callable, Dict, List, Type
 
 # DYNAMIC AST VISITOR: Auto-discovery + O(1) Registry Dispatch
 class DynamicASTVisitor:
-    """
-    Complexity:
-    - Initialization: O(k) where k = number of AST node types (~70)
-    - Handler lookup: O(1) average case (hash table)
-    - Tree traversal: O(n) where n = total nodes in tree
-    - Space: O(k) for registry + O(d) stack depth for recursion
-
-    Usage:
-        visitor = DynamicASTVisitor()
-        result = visitor.parse_tree("def foo(): pass")
-    """
-
     def __init__(self):
-        """Initialize visitor and auto-register all AST node types."""
+        print("DEBUG: starting init")
         self._handlers: Dict[Type[ast.AST], Callable[[ast.AST], Dict[str, Any]]] = {}
         self._custom_handlers: Dict[Type[ast.AST], Callable[[ast.AST], Dict[str, Any]]] = {}
 
-        # Metrics for analysis
+        # Basic metrics
         self._visit_count = 0
         self._max_depth = 0
         self._type_counts: Dict[str, int] = {}
 
-        # Auto-discover and register all AST node types
-        self._auto_register_all()
+        self._register_builtin_handlers()
+        print(f"DEBUG: registered {len(self._handlers)} handlers")
+        
 
-    def _auto_register_all(self) -> None:
-        """
-        Discover and register handlers for ALL AST node types.
-        """
+
+    def _register_builtin_handlers(self) -> None:
+        """Register simple auto-generated handlers for all known AST types."""
         for name in dir(ast):
             obj = getattr(ast, name)
-            # Check if it's a class that inherits from ast.AST
             if isinstance(obj, type) and issubclass(obj, ast.AST) and obj is not ast.AST:
-                self._handlers[obj] = self._auto_generate_handler(obj)
+                self._handlers[obj] = self._generate_handler(obj)
 
-    def _auto_generate_handler(
-        self,
-        node_type: Type[ast.AST]
-    ) -> Callable[[ast.AST], Dict[str, Any]]:
-        """
-
-        Build a handler dynamically from the node's _fields attribute.
-
-        Per Python AST specification, every node class has _fields defining
-        its child nodes (https://docs.python.org/3/library/ast.html).
-
-        """
-        fields = getattr(node_type, '_fields', ())
+    def _generate_handler(self, node_type: Type[ast.AST]) -> Callable[[ast.AST], Dict[str, Any]]:
+        fields = getattr(node_type, "_fields", ())
 
         def handler(node: ast.AST) -> Dict[str, Any]:
-            result = {"type": node_type.__name__}
-
+            out: Dict[str, Any] = {"type": node_type.__name__}
             for field in fields:
-                value = getattr(node, field, None)
-                result[field] = self._process_value(value)
+                out[field] = self._process_value(getattr(node, field, None))
 
-            # Add source info if available (line numbers, etc.)
-            if hasattr(node, 'lineno'):
-                result["lineno"] = node.lineno
-            if hasattr(node, 'col_offset'):
-                result["col_offset"] = node.col_offset
+            # include source location if available
+            if hasattr(node, "lineno"):
+                out["lineno"] = node.lineno
+            if hasattr(node, "col_offset"):
+                out["col_offset"] = node.col_offset
 
-            return result
+            return out
 
         return handler
 
-    def _process_value(self, value: Any) -> Any:
-        """
-        Recursively process any value from an AST node field.
 
-        Pre-order DFS tree traversal (GeeksforGeeks). Handles AST nodes, lists, and primitives.
-        """
+    def _process_value(self, value: Any) -> Any:
+        """Recursively process AST fields."""
         if isinstance(value, ast.AST):
             return self.visit(value)
-        elif isinstance(value, list):
-            return [self._process_value(v) for v in value]
-        else:
-            # Primitives: str, int, float, None, bool
-            return value
+        if isinstance(value, list):
+            return [self._process_value(item) for item in value]
+        return value
+
 
     def visit(self, node: ast.AST) -> Dict[str, Any]:
-        """
-        If the node type isn't registered (e.g., new Python version),
-        auto-generates and registers a handler on the fly.
-
-        Basics of the Visitor pattern with O(1) dispatch using a registry.
-        """
+        """Dispatch to a handler, creating one if the type was added in later Python versions."""
         self._visit_count += 1
+
         node_type = type(node)
+        name = node_type.__name__
+        print(f"DEBUG: visiting {name}")
+        self._type_counts[name] = self._type_counts.get(name, 0) + 1
 
-        # Track type frequency for analysis
-        type_name = node_type.__name__
-        self._type_counts[type_name] = self._type_counts.get(type_name, 0) + 1
-
-        # Check custom handlers first (allows user overrides)
+        # Prefer user-defined handlers
         if node_type in self._custom_handlers:
+            print(f"DEBUG: using custom handler for {name}")
             return self._custom_handlers[node_type](node)
 
-        # Check auto-generated handlers
         handler = self._handlers.get(node_type)
-
         if handler is None:
-            # Unknown type - auto-register it now (future-proofing)
-            handler = self._auto_generate_handler(node_type)
+            # Node type introduced in a newer Python version
+            print(f"DEBUG: no handler found, generating one for {name}")
+            handler = self._generate_handler(node_type)
             self._handlers[node_type] = handler
 
         return handler(node)
 
-    def register(self, node_type: Type[ast.AST]) -> Callable:
-        """
-        Decorator to register custom handlers that override auto-generated ones.
 
-        Needed when specialized extraction is needed for specific nodes.
-            **trying this without any specialized extraction for now, but 
-            it was good to implement**
-
-        Usage:
-            @visitor.register(ast.FunctionDef)
-            def custom_function_handler(node):
-                return {
-                    "type": "FunctionDef",
-                    "name": node.name,
-                    "is_async": False,
-                    "complexity": calculate_complexity(node),
-                }
-        """
-        def decorator(func: Callable[[ast.AST], Dict[str, Any]]) -> Callable:
+    def register(self, node_type: Type[ast.AST]):
+        """Decorator for registering custom handlers."""
+        def decorator(func: Callable[[ast.AST], Dict[str, Any]]):
             self._custom_handlers[node_type] = func
             return func
         return decorator
 
-    def register_handler(
-        self,
-        node_type: Type[ast.AST],
-        handler: Callable[[ast.AST], Dict[str, Any]]
-    ) -> None:
-        """Programmatically register a custom handler without decorator syntax."""
+    def register_handler(self, node_type: Type[ast.AST], handler: Callable[[ast.AST], Dict[str, Any]]) -> None:
+        """Programmatically register a custom handler."""
         self._custom_handlers[node_type] = handler
 
-    def parse_tree(self, code: str) -> Dict[str, Any]:
-        """
-        Parse code string into full recursive AST representation.
 
-        The reason I used DFS is because I am more comfortable with DFS here and it was 
-        closer to the python AST way of traversing the tree. 
-        """
-        # Reset metrics
+    def parse_tree(self, code: str) -> Dict[str, Any]:
+        """Parse Python code into a structured AST representation."""
+        print("DEBUG: parse_tree called")
         self._visit_count = 0
         self._max_depth = 0
         self._type_counts = {}
 
         tree = ast.parse(code)
+        print(f"DEBUG: parsed code, got {len(tree.body)} top-level nodes")
 
-        nodes = []
+        results = []
         for node in tree.body:
-            parsed = self._parse_recursive(node, depth=0)
-            nodes.append(parsed)
+            results.append(self._walk(node, 0))
 
+        print(f"DEBUG: done parsing, visited {self._visit_count} nodes total")
         return {
-            "nodes": nodes,
+            "nodes": results,
             "metadata": {
                 "total_nodes_visited": self._visit_count,
                 "max_depth": self._max_depth,
-                "top_level_count": len(nodes),
+                "top_level_count": len(results),
                 "type_frequency": self._type_counts,
                 "registered_handlers": len(self._handlers),
-            }
+            },
         }
 
-    def _parse_recursive(
-        self,
-        node: ast.AST,
-        depth: int = 0
-    ) -> Dict[str, Any]:
-        """
-        Parse a node with depth tracking for complexity analysis.
-
-        Pre-order DFS tree traversal (GeeksforGeeks).
-        """
+    def _walk(self, node: ast.AST, depth: int) -> Dict[str, Any]:
+        """Recursive traversal with depth tracking."""
+        print(f"DEBUG: walking at depth {depth}")
         self._max_depth = max(self._max_depth, depth)
+        data = self.visit(node)
+        data["depth"] = depth
+        return data
 
-        result = self.visit(node)
-        result["depth"] = depth
-
-        return result
 
     def get_metrics(self) -> Dict[str, Any]:
-        """Return parsing metrics for complexity analysis."""
+        """Return collected parsing metrics."""
         return {
             "visit_count": self._visit_count,
             "max_depth": self._max_depth,
-            "type_counts": self._type_counts.copy(),
+            "type_counts": dict(self._type_counts),
             "registered_handlers": len(self._handlers),
             "custom_handlers": len(self._custom_handlers),
         }
 
     def get_registered_types(self) -> List[str]:
-        return sorted([t.__name__ for t in self._handlers.keys()])
+        return sorted(t.__name__ for t in self._handlers)
+
 
 
 

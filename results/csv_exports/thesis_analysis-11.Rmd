@@ -1,8 +1,7 @@
 ---
 title: "Pattern-Based Security Enhancement for AI-Generated Code: Statistical Analysis"
 subtitle: "AST-Guided Chain-of-Thought Prompting vs. Natural Language Prompting"
-author: "Endry Alberto Melo"
-date: "`r format(Sys.Date(), '%B %d, %Y')`"
+author: "Alberto Melo"
 output:
   html_document:
     toc: true
