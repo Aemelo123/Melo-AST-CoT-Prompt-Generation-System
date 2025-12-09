@@ -1,20 +1,19 @@
 """
-Dynamic AST Parser with Auto-Discovery Registry Pattern
+Dynamic AST Parser with Registry Pattern and Security Validation
 
-This module implements a fully dynamic AST parser that automatically discovers
-and registers handlers for ALL Python AST node types using introspection.
-No manual handler definitions required - scales automatically with Python versions.
-
-- Auto-discovery: Introspects ast module to find all node types
-- Auto-generation: Builds handlers from node._fields automatically
-- O(1) dispatch: Registry pattern for constant-time handler lookup
-- Recursive traversal: Full tree depth, not just top-level nodes
+DynamicASTVisitor:
+    Using the Registry Pattern (Fowler, 2002), The AST parser is able to dispatch the 
+    handler in O(1) time. Instead of using about 70 different conditions to match AST node 
+    classes, the AST nodes' handlers are registered by class in a hash table that can be 
+    searched in constant time as the AST tree is traversed. This design is scalable and 
+    easy to extend because all you have to do is add a new handler to the registry; 
+    no changes need to be made to your existing code.
 
 References:
-- Gamma et al., "Design Patterns" (1994) - Visitor Pattern
-- Tarjan, "Amortized Computational Complexity" (1985)
-
-https://docs.python.org/3/library/ast.html
+    - Gamma et al., "Design Patterns" (1994) - Visitor Pattern
+    - Martin Fowler, Patterns of Enterprise Application Architecture (Addison-Wesley, 2002), 
+        pp. 480-485.
+    - Python AST Library: https://docs.python.org/3/library/ast.html
 """
 
 import ast
@@ -23,14 +22,8 @@ from typing import Any, Callable, Dict, List, Type
 
 
 # DYNAMIC AST VISITOR: Auto-discovery + O(1) Registry Dispatch
-
-
 class DynamicASTVisitor:
     """
-    dynamic AST visitor pattern that auto-discovers all node types.
-
-    auto-generates handlers based on each node's _fields attribute.
-
     Complexity:
     - Initialization: O(k) where k = number of AST node types (~70)
     - Handler lookup: O(1) average case (hash table)
@@ -233,15 +226,18 @@ class DynamicASTVisitor:
 
 
 # SECURITY VISITOR: Dynamic security rule enforcement on AST nodes
+#
+# SecurityVisitor extends DynamicASTVisitor with security rule validation using
+# the same O(1) registry pattern. Rules are stored by node type for fast lookup.
+#
+# Security checks include:
+# - Dangerous builtins: eval, exec, compile, __import__, getattr, setattr, etc.
+# - Dangerous module calls: os.system, subprocess.run, pickle.loads, etc.
+# - SQL injection detection: string concatenation or f-strings in execute() calls
+# - Dangerous imports: os, subprocess, pickle, marshal modules
+
 
 class SecurityVisitor(DynamicASTVisitor):
-    """
-    Extends DynamicASTVisitor with security rule validation.
-
-    Rules are stored in a registry keyed by node type, enabling O(1) lookup.
-    Rules can block dangerous patterns or transform nodes to safe alternatives.
-    """
-
     DANGEROUS_CALLS = {
         "eval", "exec", "compile", "__import__",
         "getattr", "setattr", "delattr",
