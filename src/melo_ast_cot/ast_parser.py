@@ -450,6 +450,33 @@ def code_to_ast_string(code: str) -> str:
     tree = ast.parse(code)
     return ast.dump(tree, indent=2)
 
+#
+# Why Use JSON For AST Representation?
+#
+# The large language models we use as part of our code completion system are designed
+# to understand text, but they are not built to work with Python objects directly. In
+# order to make use of the large language model's ability to reason about code structure,
+# we require a way to represent code structure in a format that is both readable by humans
+# and parseable by the large language model. A text based representation of code would be
+# an ideal solution because it meets all four requirements:
+#
+#   1. Human Readability - The JSON key-value pair format is very similar to how you
+#      explain your code structure.
+#
+#   2. Machine Parseable - The large language model will be able to generate valid JSON
+#      that we can parse.
+#
+#   3. Training Data - The large language models have been trained on massive amounts of
+#      JSON (APIs, configuration files, etc).
+#
+#   4. Structured Output - We can ask the LLM for and check that it produces compliant
+#      JSON against a defined JSON schema.
+#
+# By representing the Abstract Syntax Tree (AST) as JSON, the large language model will
+# be thinking about the AST nodes (FunctionDef, Assign, Call, etc), rather than just raw
+# text; this will allow us to implement AST-Guided CoT.
+
+# The below functions are all in regards to formatting with JSON
 
 def code_to_ast_json(code: str) -> str:
     """Convert code to AST JSON string (legacy function)."""
@@ -596,6 +623,7 @@ def _clean_json_response(response: str) -> str:
     return response
 
 
+# Helper to handle both dynamic and legacy AST argument formats
 def _extract_args(args_node: dict) -> List[str]:
     """Extract argument names from an arguments node (dynamic format)."""
     if isinstance(args_node, dict) and "args" in args_node:
@@ -607,6 +635,7 @@ def _extract_args(args_node: dict) -> List[str]:
     return []
 
 
+# Helper to handle both dynamic and legacy AST import formats
 def _extract_imports(node: dict) -> List[str]:
     """Extract module names from Import/ImportFrom nodes (dynamic format)."""
     if node["type"] == "Import":
@@ -622,6 +651,7 @@ def _extract_imports(node: dict) -> List[str]:
     return []
 
 
+# Core function of the AST-Guided CoT pipeline - orchestrates the novel approach
 def get_llm_ast_json(parsed_prompt: dict, llm_func) -> tuple[dict, str, list]:
     func_info = None
     imports = []
