@@ -7,10 +7,8 @@ from pathlib import Path
 from melo_ast_cot import ast_parser, nl_cot_baseline, securityeval, vulnerability_scanner
 
 
-RANDOM_SEED = 999
+RANDOM_SEED = 999 # random seed for reproducibility
 RESULTS_DIR = Path("results")
-
-
 
 
 def save_sample(sample: dict, iteration: int) -> Path:
