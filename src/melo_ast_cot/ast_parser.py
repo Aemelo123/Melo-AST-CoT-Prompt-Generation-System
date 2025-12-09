@@ -226,16 +226,38 @@ class DynamicASTVisitor:
         return sorted([t.__name__ for t in self._handlers.keys()])
 
 
-# SECURITY VISITOR: Dynamic security rule enforcement on AST nodes
+
+# Part of the **novel** approach: Intermediate Security Validation
 #
-# SecurityVisitor extends DynamicASTVisitor with security rule validation using
-# the same O(1) registry pattern. Rules are stored by node type for fast lookup.
+# NL_COT (Natural Language Chain-of-Thought) pipeline:
+#   Prompt -> LLM reasoning -> Raw code -> Bandit/Semgrep (post-hoc validation)
 #
-# Security checks include:
-# - Dangerous builtins: eval, exec, compile, __import__, getattr, setattr, etc.
-# - Dangerous module calls: os.system, subprocess.run, pickle.loads, etc.
-# - SQL injection detection: string concatenation or f-strings in execute() calls
-# - Dangerous imports: os, subprocess, pickle, marshal modules
+# AST_COT (AST-Guided Chain-of-Thought) pipeline:
+#   Prompt -> LLM produces AST JSON -> SecurityVisitor (pre-synthesis) -> Code synthesis -> Bandit/Semgrep
+#                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+#                                      This step is only possible because we have
+#                                      structured output before code generation
+#
+# SecurityVisitor exploits this intermediate representation to validate the LLM's
+# structural output BEFORE code synthesis. If the model's reasoning includes a
+# dangerous pattern (e.g., subprocess.run with user input), we catch it at the
+# structural level - not after the code is already generated.
+#
+# Foundational References:
+#   - Wei et al., "Chain-of-Thought Prompting Elicits Reasoning in Large Language
+#     Models," NeurIPS 2022. https://arxiv.org/abs/2201.11903
+#     (Intermediate reasoning steps improve LLM performance)
+#
+#   - Yamaguchi et al., "Generalized Vulnerability Extrapolation using Abstract
+#     Syntax Trees," ACSAC 2012. https://dl.acm.org/doi/10.1145/2420950.2421003
+#     (AST-based security analysis for vulnerability detection)
+#
+#   - Gamma et al., "Design Patterns" (1994) - Visitor Pattern
+#     (Structural pattern for AST traversal)
+#
+#   - Fowler, "Patterns of Enterprise Application Architecture" (2002), pp. 480-485
+#     (Registry Pattern for O(1) handler dispatch)
+#
 
 
 class SecurityVisitor(DynamicASTVisitor):
@@ -261,6 +283,19 @@ class SecurityVisitor(DynamicASTVisitor):
         self._register_default_rules()
 
     def _register_default_rules(self) -> None:
+        """
+        Register security rules based on well-known vulnerability patterns.
+
+        Security rule references:
+            - MITRE CWE-78: OS Command Injection
+              https://cwe.mitre.org/data/definitions/78.html
+            - MITRE CWE-89: SQL Injection
+              https://cwe.mitre.org/data/definitions/89.html
+            - OWASP Command Injection
+              https://owasp.org/www-community/attacks/Command_Injection
+            - OWASP Code Injection (eval/exec)
+              https://owasp.org/www-community/attacks/Code_Injection
+        """
         self.add_rule("Call", self._check_dangerous_call)
         self.add_rule("Call", self._check_sql_injection)
         self.add_rule("Import", self._check_dangerous_import)
@@ -281,6 +316,7 @@ class SecurityVisitor(DynamicASTVisitor):
         return self._violations
 
     def _validate_recursive(self, node: Any) -> None:
+        # another recursive function to traverse the tree and apply rules
         if isinstance(node, dict):
             node_type = node.get("type")
             if node_type and node_type in self._security_rules:
@@ -295,6 +331,13 @@ class SecurityVisitor(DynamicASTVisitor):
                 self._validate_recursive(item)
 
     def _check_dangerous_call(self, node: Dict) -> Dict[str, Any] | None:
+        """
+        Detect dangerous function calls (CWE-78, OWASP Command/Code Injection).
+
+        Checks for:
+        - Dangerous builtins: eval, exec, compile (OWASP Code Injection)
+        - Dangerous module calls: os.system, subprocess.call (CWE-78)
+        """
         func = node.get("func")
         func_name = None
 
@@ -330,6 +373,12 @@ class SecurityVisitor(DynamicASTVisitor):
         return None
 
     def _check_sql_injection(self, node: Dict) -> Dict[str, Any] | None:
+        """
+        Detect SQL injection patterns (CWE-89).
+
+        Flags string concatenation (+, %) or f-strings in SQL query arguments,
+        which are common injection vectors per MITRE CWE-89 guidance.
+        """
         func = node.get("func")
         if isinstance(func, dict) and func.get("type") == "Attribute":
             attr = func.get("attr")
@@ -354,6 +403,12 @@ class SecurityVisitor(DynamicASTVisitor):
         return None
 
     def _check_dangerous_import(self, node: Dict) -> Dict[str, Any] | None:
+        """
+        Flag imports of modules commonly associated with security vulnerabilities.
+
+        Modules like os, subprocess, pickle can enable command injection (CWE-78)
+        or arbitrary code execution if misused.
+        """
         if node.get("type") == "Import":
             names = node.get("names", [])
             for alias in names:
