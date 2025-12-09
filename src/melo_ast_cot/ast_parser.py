@@ -11,9 +11,11 @@ DynamicASTVisitor:
 
 References:
     - Gamma et al., "Design Patterns" (1994) - Visitor Pattern
-    - Martin Fowler, Patterns of Enterprise Application Architecture (Addison-Wesley, 2002), 
+    - Martin Fowler, Patterns of Enterprise Application Architecture (Addison-Wesley, 2002),
         pp. 480-485.
-    - Python AST Library: https://docs.python.org/3/library/ast.html
+    - Python Software Foundation. "ast — Abstract Syntax Trees." Python 3.x Documentation.
+        https://docs.python.org/3/library/ast.html
+    - Wirth, N. (1976). Algorithms + Data Structures = Programs. Prentice-Hall. - DFS tree traversal
 """
 
 import ast
@@ -63,15 +65,12 @@ class DynamicASTVisitor:
         node_type: Type[ast.AST]
     ) -> Callable[[ast.AST], Dict[str, Any]]:
         """
-        Build a handler dynamically from the node's _fields.
 
-        Every AST node class has a _fields attribute that defines its
-        structure. For example:
-            ast.Assign._fields = ('targets', 'value')
-            ast.If._fields = ('test', 'body', 'orelse')
+        Build a handler dynamically from the node's _fields attribute.
 
-        use this & auto-generate extraction logic without
-        writing handlers manually.
+        Per Python AST specification, every node class has _fields defining
+        its child nodes (https://docs.python.org/3/library/ast.html).
+
         """
         fields = getattr(node_type, '_fields', ())
 
@@ -96,12 +95,7 @@ class DynamicASTVisitor:
         """
         Recursively process any value from an AST node field.
 
-        Handles three cases:
-        1. AST nodes -> recurse with visit()
-        2. Lists -> process each element
-        3. Primitives (str, int, None) -> return as-is
-
-        This enables full recursive traversal of the entire tree.
+        DFS tree traversal (Wirth, 1976). Handles AST nodes, lists, and primitives.
         """
         if isinstance(value, ast.AST):
             return self.visit(value)
@@ -113,10 +107,10 @@ class DynamicASTVisitor:
 
     def visit(self, node: ast.AST) -> Dict[str, Any]:
         """
-        O(1) dispatch to the appropriate handler.
-
         If the node type isn't registered (e.g., new Python version),
         auto-generates and registers a handler on the fly.
+
+        Basics of the Visitor pattern with O(1) dispatch using a registry.
         """
         self._visit_count += 1
         node_type = type(node)
@@ -143,8 +137,9 @@ class DynamicASTVisitor:
         """
         Decorator to register custom handlers that override auto-generated ones.
 
-        Use this when specialized extraction is needed for specific nodes.
-            **trying this without any specialized extraction for now**
+        Needed when specialized extraction is needed for specific nodes.
+            **trying this without any specialized extraction for now, but 
+            it was good to implement**
 
         Usage:
             @visitor.register(ast.FunctionDef)
@@ -203,6 +198,8 @@ class DynamicASTVisitor:
     ) -> Dict[str, Any]:
         """
         Parse a node with depth tracking for complexity analysis.
+
+        DFS tree traversal (Wirth, 1976).
         """
         self._max_depth = max(self._max_depth, depth)
 
