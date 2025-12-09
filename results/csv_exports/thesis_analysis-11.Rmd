@@ -1,0 +1,500 @@
+---
+title: "Pattern-Based Security Enhancement for AI-Generated Code: Statistical Analysis"
+subtitle: "AST-Guided Chain-of-Thought Prompting vs. Natural Language Prompting"
+author: "Endry Alberto Melo"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    number_sections: true
+    theme: cosmo
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width = 10,
+  fig.height = 6,
+  fig.align = "center",
+  comment = ""
+)
+set.seed(42)
+```
+
+# Data Loading
+
+```{r load-data, results='hide'}
+# Load and combine all iteration files
+files <- paste0("experiment_results_iteration_", 1:5, ".csv")
+df <- do.call(rbind, lapply(files, read.csv, stringsAsFactors = FALSE))
+
+# Preprocessing
+df$condition <- factor(df$condition, 
+                       levels = c("AST_COT", "NL_COT"),
+                       labels = c("AST-Guided CoT", "Natural Language CoT"))
+df$model <- factor(df$model, levels = c("CLAUDE", "GPT4"), labels = c("Claude", "GPT-4"))
+
+# Primary metric: Does sample have at least one vulnerability?
+df$has_vulnerability <- df$num_vulnerabilities > 0
+```
+
+```{r data-summary}
+data_info <- data.frame(
+  Metric = c("Total Samples", "Prompting Methods", "LLM Models"),
+  Value = c(nrow(df), "AST-Guided CoT, Natural Language CoT", "Claude, GPT-4")
+)
+knitr::kable(data_info, caption = "Dataset Overview", row.names = FALSE)
+```
+
+# Analysis 1: Descriptive Statistics
+
+## Total Vulnerability Count (Primary Metric)
+
+Total vulnerability count measures the total number of security vulnerabilities detected across all code samples for each prompting method.
+
+```{r total-counts}
+# Total vulnerabilities by treatment group
+vuln_by_group <- aggregate(num_vulnerabilities ~ condition + model, data = df, FUN = sum)
+vuln_wide <- reshape(vuln_by_group, idvar = "condition", timevar = "model", direction = "wide")
+names(vuln_wide) <- c("Prompting Method", "Claude", "GPT-4")
+vuln_wide$Total <- vuln_wide$Claude + vuln_wide$`GPT-4`
+
+knitr::kable(vuln_wide,
+             caption = "Table 1: Total Vulnerability Count by Treatment Group",
+             row.names = FALSE)
+
+# By prompting method only
+vuln_totals <- aggregate(num_vulnerabilities ~ condition, data = df, FUN = sum)
+names(vuln_totals) <- c("Prompting Method", "Total Vulnerabilities")
+
+# Add sample counts
+sample_counts <- aggregate(sample_id ~ condition, data = df, FUN = length)
+vuln_totals$`Total Samples` <- sample_counts$sample_id
+vuln_totals$`Mean per Sample` <- round(vuln_totals$`Total Vulnerabilities` / vuln_totals$`Total Samples`, 3)
+
+knitr::kable(vuln_totals,
+             caption = "Table 2: Total Vulnerabilities by Prompting Method",
+             row.names = FALSE)
+```
+
+```{r count-chart, fig.cap="Figure 1: Total Vulnerabilities by Prompting Method"}
+totals <- c(
+  sum(df$num_vulnerabilities[df$condition == "AST-Guided CoT"]),
+  sum(df$num_vulnerabilities[df$condition == "Natural Language CoT"])
+)
+names(totals) <- c("AST-Guided CoT", "Natural Language CoT")
+
+bp <- barplot(totals, col = c("steelblue", "coral"),
+        main = "Total Vulnerabilities by Prompting Method",
+        ylab = "Number of Vulnerabilities",
+        ylim = c(0, max(totals) * 1.3))
+text(x = bp, y = totals + max(totals) * 0.05, labels = totals, font = 2, cex = 1.2)
+
+# Add difference annotation
+if (totals[1] < totals[2]) {
+  diff_text <- paste0(totals[2] - totals[1], " fewer with AST-Guided")
+} else {
+  diff_text <- paste0(totals[1] - totals[2], " fewer with NL CoT")
+}
+mtext(diff_text, side = 3, line = -2, cex = 0.9)
+```
+
+```{r count-by-group-chart, fig.cap="Figure 2: Total Vulnerabilities by Treatment Group"}
+count_matrix <- matrix(
+  c(
+    sum(df$num_vulnerabilities[df$condition == "AST-Guided CoT" & df$model == "Claude"]),
+    sum(df$num_vulnerabilities[df$condition == "Natural Language CoT" & df$model == "Claude"]),
+    sum(df$num_vulnerabilities[df$condition == "AST-Guided CoT" & df$model == "GPT-4"]),
+    sum(df$num_vulnerabilities[df$condition == "Natural Language CoT" & df$model == "GPT-4"])
+  ),
+  nrow = 2, ncol = 2, byrow = FALSE
+)
+rownames(count_matrix) <- c("AST-Guided CoT", "Natural Language CoT")
+colnames(count_matrix) <- c("Claude", "GPT-4")
+
+bar_pos <- barplot(count_matrix, 
+        beside = TRUE,
+        col = c("steelblue", "coral"),
+        main = "Total Vulnerabilities by Treatment Group",
+        xlab = "LLM Model",
+        ylab = "Number of Vulnerabilities",
+        ylim = c(0, max(count_matrix) * 1.3),
+        legend.text = rownames(count_matrix),
+        args.legend = list(x = "topright", title = "Prompting Method"))
+
+text(x = bar_pos, y = count_matrix + max(count_matrix) * 0.05, labels = count_matrix, font = 2)
+```
+
+## Vulnerability Rate (Secondary Metric)
+
+Vulnerability rate measures the percentage of code samples that contain at least one security vulnerability.
+
+```{r vuln-rate-table}
+# Calculate vulnerability rate by treatment group
+vuln_rate <- aggregate(has_vulnerability ~ condition + model, data = df, 
+                       FUN = function(x) round(mean(x) * 100, 1))
+names(vuln_rate) <- c("Prompting Method", "Model", "Vulnerability Rate (%)")
+
+# Pivot for display
+rate_wide <- reshape(vuln_rate, idvar = "Prompting Method", timevar = "Model", direction = "wide")
+names(rate_wide) <- gsub("Vulnerability Rate \\(%\\)\\.", "", names(rate_wide))
+
+knitr::kable(rate_wide,
+             caption = "Table 3: Vulnerability Rate by Treatment Group (% of Samples with ≥1 Vulnerability)",
+             row.names = FALSE)
+```
+
+```{r vuln-rate-by-condition}
+# Overall by prompting method
+condition_rate <- aggregate(has_vulnerability ~ condition, data = df,
+                            FUN = function(x) c(
+                              Rate = round(mean(x) * 100, 1),
+                              Vulnerable = sum(x),
+                              Total = length(x)
+                            ))
+condition_rate <- do.call(data.frame, condition_rate)
+names(condition_rate) <- c("Prompting Method", "Vulnerability Rate (%)", "Samples with Vulnerabilities", "Total Samples")
+
+knitr::kable(condition_rate,
+             caption = "Table 4: Vulnerability Rate by Prompting Method",
+             row.names = FALSE)
+```
+
+```{r bar-chart, fig.cap="Figure 3: Vulnerability Rate by Treatment Group"}
+# Create data for plot
+rate_matrix <- matrix(
+  c(
+    mean(df$has_vulnerability[df$condition == "AST-Guided CoT" & df$model == "Claude"]) * 100,
+    mean(df$has_vulnerability[df$condition == "Natural Language CoT" & df$model == "Claude"]) * 100,
+    mean(df$has_vulnerability[df$condition == "AST-Guided CoT" & df$model == "GPT-4"]) * 100,
+    mean(df$has_vulnerability[df$condition == "Natural Language CoT" & df$model == "GPT-4"]) * 100
+  ),
+  nrow = 2, ncol = 2, byrow = FALSE
+)
+rownames(rate_matrix) <- c("AST-Guided CoT", "Natural Language CoT")
+colnames(rate_matrix) <- c("Claude", "GPT-4")
+
+bar_pos <- barplot(rate_matrix, 
+        beside = TRUE,
+        col = c("steelblue", "coral"),
+        main = "Vulnerability Rate by Treatment Group",
+        xlab = "LLM Model",
+        ylab = "% of Samples with Vulnerabilities",
+        ylim = c(0, max(rate_matrix) * 1.4),
+        legend.text = rownames(rate_matrix),
+        args.legend = list(x = "topright", title = "Prompting Method"))
+
+text(x = bar_pos, y = rate_matrix + 2, labels = paste0(round(rate_matrix, 1), "%"), font = 2)
+```
+
+# Analysis 2: Chi-Square Test
+
+The Chi-Square test determines if there is a statistically significant relationship between prompting method and vulnerability occurrence.
+
+**Null Hypothesis (H₀):** There is no relationship between prompting method and vulnerability rate.
+
+**Alternative Hypothesis (H₁):** There is a relationship between prompting method and vulnerability rate.
+
+```{r chi-square}
+# Create contingency table
+contingency <- table(df$condition, df$has_vulnerability)
+colnames(contingency) <- c("No Vulnerability", "Has Vulnerability")
+
+knitr::kable(contingency,
+             caption = "Table 4: Contingency Table - Prompting Method × Vulnerability Status")
+
+# Chi-square test
+chi_test <- chisq.test(contingency)
+
+chi_results <- data.frame(
+  Statistic = "Chi-Square (χ²)",
+  Value = round(chi_test$statistic, 3),
+  `Degrees of Freedom` = chi_test$parameter,
+  `p-value` = round(chi_test$p.value, 4),
+  `Significant (α = .05)` = ifelse(chi_test$p.value < 0.05, "Yes", "No")
+)
+
+knitr::kable(chi_results,
+             caption = "Table 5: Chi-Square Test Results",
+             row.names = FALSE)
+```
+
+```{r chi-interpretation, results='asis'}
+if (chi_test$p.value < 0.05) {
+  cat("**Interpretation:** The p-value is less than 0.05, so we reject the null hypothesis. There IS a statistically significant relationship between prompting method and vulnerability rate.")
+} else {
+  cat("**Interpretation:** The p-value is greater than 0.05, so we fail to reject the null hypothesis. There is NO statistically significant relationship between prompting method and vulnerability rate. The observed difference may be due to chance.")
+}
+```
+
+# Analysis 3: Independent Samples T-Test
+
+The t-test compares the mean number of vulnerabilities per sample between the two prompting methods.
+
+**Null Hypothesis (H₀):** There is no difference in mean vulnerability count between prompting methods.
+
+**Alternative Hypothesis (H₁):** There is a difference in mean vulnerability count between prompting methods.
+
+```{r t-test}
+# Get vulnerability counts for each group
+ast_vulns <- df$num_vulnerabilities[df$condition == "AST-Guided CoT"]
+nl_vulns <- df$num_vulnerabilities[df$condition == "Natural Language CoT"]
+
+# Descriptive stats
+ttest_desc <- data.frame(
+  `Prompting Method` = c("AST-Guided CoT", "Natural Language CoT"),
+  N = c(length(ast_vulns), length(nl_vulns)),
+  Mean = c(round(mean(ast_vulns), 3), round(mean(nl_vulns), 3)),
+  `Std. Deviation` = c(round(sd(ast_vulns), 3), round(sd(nl_vulns), 3)),
+  `Std. Error` = c(round(sd(ast_vulns)/sqrt(length(ast_vulns)), 3), 
+                   round(sd(nl_vulns)/sqrt(length(nl_vulns)), 3))
+)
+
+knitr::kable(ttest_desc,
+             caption = "Table 6: Descriptive Statistics for Vulnerability Count",
+             row.names = FALSE)
+
+# Independent samples t-test (Welch's t-test, does not assume equal variances)
+t_test <- t.test(ast_vulns, nl_vulns)
+
+t_results <- data.frame(
+  Statistic = "t",
+  Value = round(t_test$statistic, 3),
+  `Degrees of Freedom` = round(t_test$parameter, 2),
+  `p-value` = round(t_test$p.value, 4),
+  `Mean Difference` = round(mean(ast_vulns) - mean(nl_vulns), 3),
+  `95% CI Lower` = round(t_test$conf.int[1], 3),
+  `95% CI Upper` = round(t_test$conf.int[2], 3),
+  `Significant (α = .05)` = ifelse(t_test$p.value < 0.05, "Yes", "No")
+)
+
+knitr::kable(t_results,
+             caption = "Table 7: Independent Samples T-Test Results",
+             row.names = FALSE)
+```
+
+```{r t-interpretation, results='asis'}
+if (t_test$p.value < 0.05) {
+  cat("**Interpretation:** The p-value is less than 0.05, so we reject the null hypothesis. There IS a statistically significant difference in mean vulnerability count between prompting methods.")
+} else {
+  cat("**Interpretation:** The p-value is greater than 0.05, so we fail to reject the null hypothesis. There is NO statistically significant difference in mean vulnerability count between prompting methods.")
+}
+```
+
+```{r t-test-plot, fig.cap="Figure 3: Mean Vulnerabilities per Sample by Prompting Method"}
+# Bar chart with error bars
+means <- c(mean(ast_vulns), mean(nl_vulns))
+ses <- c(sd(ast_vulns)/sqrt(length(ast_vulns)), sd(nl_vulns)/sqrt(length(nl_vulns)))
+names(means) <- c("AST-Guided CoT", "Natural Language CoT")
+
+bp <- barplot(means, col = c("steelblue", "coral"),
+              main = "Mean Vulnerabilities per Sample",
+              ylab = "Mean Number of Vulnerabilities",
+              ylim = c(0, max(means + ses * 2) * 1.2))
+
+# Add error bars (±1 SE)
+arrows(bp, means - ses, bp, means + ses, angle = 90, code = 3, length = 0.1)
+
+# Add mean labels
+text(x = bp, y = means + ses + 0.02, labels = round(means, 3), font = 2)
+```
+
+# Analysis 4: Two-Proportion Z-Test
+
+This test directly compares the vulnerability proportions between the two prompting methods.
+
+```{r prop-test}
+# Get counts
+ast_vuln <- sum(df$has_vulnerability[df$condition == "AST-Guided CoT"])
+ast_total <- sum(df$condition == "AST-Guided CoT")
+nl_vuln <- sum(df$has_vulnerability[df$condition == "Natural Language CoT"])
+nl_total <- sum(df$condition == "Natural Language CoT")
+
+# Two-proportion z-test
+prop_test <- prop.test(c(ast_vuln, nl_vuln), c(ast_total, nl_total))
+
+prop_table <- data.frame(
+  `Prompting Method` = c("AST-Guided CoT", "Natural Language CoT"),
+  `Vulnerable` = c(ast_vuln, nl_vuln),
+  `Total` = c(ast_total, nl_total),
+  `Proportion` = c(round(ast_vuln/ast_total, 3), round(nl_vuln/nl_total, 3)),
+  `Percentage` = c(paste0(round(ast_vuln/ast_total * 100, 1), "%"), 
+                   paste0(round(nl_vuln/nl_total * 100, 1), "%"))
+)
+
+knitr::kable(prop_table,
+             caption = "Table 6: Vulnerability Proportions",
+             row.names = FALSE)
+
+z_results <- data.frame(
+  Test = "Two-Proportion Z-Test",
+  `p-value` = round(prop_test$p.value, 4),
+  `95% Confidence Interval` = paste0("[", round(prop_test$conf.int[1], 4), ", ", round(prop_test$conf.int[2], 4), "]"),
+  `Significant (α = .05)` = ifelse(prop_test$p.value < 0.05, "Yes", "No")
+)
+
+knitr::kable(z_results,
+             caption = "Table 7: Two-Proportion Z-Test Results",
+             row.names = FALSE)
+```
+
+# Analysis 5: Effect Size
+
+Even if results are not statistically significant, effect size tells us the practical magnitude of the difference.
+
+```{r effect-size}
+ast_rate <- ast_vuln / ast_total
+nl_rate <- nl_vuln / nl_total
+
+# Absolute difference
+abs_diff <- nl_rate - ast_rate
+
+# Relative difference (percent reduction)
+rel_diff <- (abs_diff / nl_rate) * 100
+
+# Risk ratio
+risk_ratio <- ast_rate / nl_rate
+
+effect_table <- data.frame(
+  Measure = c(
+    "AST-Guided CoT Vulnerability Rate",
+    "Natural Language CoT Vulnerability Rate",
+    "Absolute Difference",
+    "Relative Difference",
+    "Risk Ratio"
+  ),
+  Value = c(
+    paste0(round(ast_rate * 100, 1), "%"),
+    paste0(round(nl_rate * 100, 1), "%"),
+    paste0(round(abs_diff * 100, 1), " percentage points"),
+    paste0(round(rel_diff, 1), "% reduction with AST-Guided"),
+    round(risk_ratio, 3)
+  ),
+  Interpretation = c(
+    "",
+    "",
+    ifelse(abs_diff > 0, "NL CoT has higher rate", "AST-Guided has higher rate"),
+    "",
+    ifelse(risk_ratio < 1, "AST-Guided reduces risk", "AST-Guided increases risk")
+  )
+)
+
+knitr::kable(effect_table,
+             caption = "Table 8: Effect Size Measures",
+             row.names = FALSE)
+```
+
+# Supplementary: Comparison by LLM Model
+
+```{r by-model}
+# By model
+by_model <- aggregate(has_vulnerability ~ model, data = df,
+                      FUN = function(x) c(
+                        Vulnerable = sum(x),
+                        Total = length(x),
+                        Rate = round(mean(x) * 100, 1)
+                      ))
+by_model <- do.call(data.frame, by_model)
+names(by_model) <- c("Model", "Vulnerable Samples", "Total Samples", "Vulnerability Rate (%)")
+
+knitr::kable(by_model,
+             caption = "Table 9: Vulnerability Rate by LLM Model",
+             row.names = FALSE)
+
+# Chi-square for model
+contingency_model <- table(df$model, df$has_vulnerability)
+chi_model <- chisq.test(contingency_model)
+
+chi_model_results <- data.frame(
+  Comparison = "Claude vs. GPT-4",
+  `Chi-Square` = round(chi_model$statistic, 3),
+  `p-value` = round(chi_model$p.value, 4),
+  `Significant` = ifelse(chi_model$p.value < 0.05, "Yes", "No")
+)
+
+knitr::kable(chi_model_results,
+             caption = "Table 10: Chi-Square Test - Vulnerability Rate by Model",
+             row.names = FALSE)
+```
+
+# Results Summary
+
+```{r summary, results='asis'}
+# Calculate totals
+ast_total_vulns <- sum(df$num_vulnerabilities[df$condition == "AST-Guided CoT"])
+nl_total_vulns <- sum(df$num_vulnerabilities[df$condition == "Natural Language CoT"])
+vuln_diff <- nl_total_vulns - ast_total_vulns
+
+# Determine which method is better (fewer vulnerabilities)
+ast_is_better <- ast_total_vulns < nl_total_vulns
+
+if (ast_is_better) {
+  better_method <- "AST-Guided CoT"
+  worse_method <- "Natural Language CoT"
+  reduction_count <- vuln_diff
+  reduction_pct <- round((vuln_diff / nl_total_vulns) * 100, 1)
+} else {
+  better_method <- "Natural Language CoT"
+  worse_method <- "AST-Guided CoT"
+  reduction_count <- -vuln_diff
+  reduction_pct <- round((-vuln_diff / ast_total_vulns) * 100, 1)
+}
+
+# Create summary table
+summary_table <- data.frame(
+  Metric = c(
+    "Total Samples",
+    "AST-Guided CoT Total Vulnerabilities",
+    "Natural Language CoT Total Vulnerabilities",
+    "Difference",
+    "Better Performing Method",
+    "AST-Guided CoT Vulnerability Rate",
+    "Natural Language CoT Vulnerability Rate",
+    "Chi-Square p-value",
+    "T-Test p-value",
+    "Statistically Significant"
+  ),
+  Value = c(
+    as.character(nrow(df)),
+    as.character(ast_total_vulns),
+    as.character(nl_total_vulns),
+    paste0(reduction_count, " fewer vulnerabilities with ", better_method),
+    better_method,
+    paste0(round(ast_rate * 100, 1), "%"),
+    paste0(round(nl_rate * 100, 1), "%"),
+    round(chi_test$p.value, 4),
+    round(t_test$p.value, 4),
+    ifelse(chi_test$p.value < 0.05, "Yes", "No")
+  )
+)
+
+knitr::kable(summary_table,
+             caption = "Key Findings",
+             row.names = FALSE)
+```
+
+## Conclusion
+
+```{r conclusion, results='asis'}
+cat("**", better_method, "** produced fewer total vulnerabilities (**", 
+    min(ast_total_vulns, nl_total_vulns), "**) compared to **", 
+    max(ast_total_vulns, nl_total_vulns), "** for ", worse_method, ".\n\n", sep = "")
+
+cat("This represents **", reduction_count, " fewer vulnerabilities** (", 
+    reduction_pct, "% reduction) when using ", better_method, ".\n\n", sep = "")
+
+if (chi_test$p.value < 0.05) {
+  cat("This difference **is statistically significant** (Chi-Square p = ", round(chi_test$p.value, 4), 
+      ", T-Test p = ", round(t_test$p.value, 4),
+      "), indicating that ", better_method, " reliably produces more secure code.\n", sep = "")
+} else {
+  cat("However, this difference **is not statistically significant** (Chi-Square p = ", round(chi_test$p.value, 4), 
+      ", T-Test p = ", round(t_test$p.value, 4),
+      "), meaning the observed difference could be due to random chance rather than a true effect of the prompting method.\n", sep = "")
+}
+```

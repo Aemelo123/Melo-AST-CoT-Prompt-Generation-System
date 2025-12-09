@@ -66,33 +66,51 @@ def select_tasks(tasks: list, n: int = 50) -> list:
     return random.sample(tasks, n)
 
 
+def sample_exists(task_id: str, model_name: str, condition: str, iteration: int) -> bool:
+    """Check if a successful sample already exists for this task/model/condition/iteration."""
+    sample_id = f"{task_id}_{model_name}_{condition}_{iteration}"
+    path = RESULTS_DIR / f"iteration_{iteration}" / model_name / condition / f"{sample_id}.json"
+    if path.exists():
+        data = json.loads(path.read_text())
+        return data.get("success", False)
+    return False
+
+
 def run_experiment(llm_func, model_name: str, iteration: int):
     tasks = securityeval.load_tasks()
-    selected_tasks = select_tasks(tasks, 50)
+    selected_tasks = select_tasks(tasks, 25)
 
     # Run both conditions on the same 50 tasks (within-subjects design)
     for task in selected_tasks:
+        task_id = task["ID"].replace(".py", "")
+
         # AST_COT condition
-        print(f"[{model_name}] Generating AST_COT sample for {task['ID']} iteration {iteration}...")
-        sample = generate_sample(task, llm_func, iteration, "AST_COT", model_name)
-        if not sample["success"]:
+        if sample_exists(task_id, model_name, "AST_COT", iteration):
+            print(f"[{model_name}] Skipping AST_COT for {task['ID']} (already exists)")
+        else:
+            print(f"[{model_name}] Generating AST_COT sample for {task['ID']} iteration {iteration}...")
+            sample = generate_sample(task, llm_func, iteration, "AST_COT", model_name)
+            if not sample["success"]:
+                save_sample(sample, iteration)
+                raise RuntimeError(f"AST_COT failed for {sample['sample_id']}: {sample['error']}")
+            print(f"[{model_name}] Running Bandit and Semgrep on {sample['sample_id']}...")
+            sample["scan_results"] = vulnerability_scanner.scan_code(sample["generated_code"])
             save_sample(sample, iteration)
-            raise RuntimeError(f"AST_COT failed for {sample['sample_id']}: {sample['error']}")
-        print(f"[{model_name}] Running Bandit and Semgrep on {sample['sample_id']}...")
-        sample["scan_results"] = vulnerability_scanner.scan_code(sample["generated_code"])
-        save_sample(sample, iteration)
-        print(f"[{model_name}] Saved: {sample['sample_id']}")
+            print(f"[{model_name}] Saved: {sample['sample_id']}")
 
         # NL_COT condition (same task)
-        print(f"[{model_name}] Generating NL_COT sample for {task['ID']} iteration {iteration}...")
-        sample = generate_sample(task, llm_func, iteration, "NL_COT", model_name)
-        if not sample["success"]:
+        if sample_exists(task_id, model_name, "NL_COT", iteration):
+            print(f"[{model_name}] Skipping NL_COT for {task['ID']} (already exists)")
+        else:
+            print(f"[{model_name}] Generating NL_COT sample for {task['ID']} iteration {iteration}...")
+            sample = generate_sample(task, llm_func, iteration, "NL_COT", model_name)
+            if not sample["success"]:
+                save_sample(sample, iteration)
+                raise RuntimeError(f"NL_COT failed for {sample['sample_id']}: {sample['error']}")
+            print(f"[{model_name}] Running Bandit and Semgrep on {sample['sample_id']}...")
+            sample["scan_results"] = vulnerability_scanner.scan_code(sample["generated_code"])
             save_sample(sample, iteration)
-            raise RuntimeError(f"NL_COT failed for {sample['sample_id']}: {sample['error']}")
-        print(f"[{model_name}] Running Bandit and Semgrep on {sample['sample_id']}...")
-        sample["scan_results"] = vulnerability_scanner.scan_code(sample["generated_code"])
-        save_sample(sample, iteration)
-        print(f"[{model_name}] Saved: {sample['sample_id']}")
+            print(f"[{model_name}] Saved: {sample['sample_id']}")
 
 
 def export_results_to_csv(iteration: int) -> Path:
