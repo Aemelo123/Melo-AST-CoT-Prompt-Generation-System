@@ -1,19 +1,26 @@
+'''
+
+References:
+
+DAIR.AI, "Prompt Engineering Guide,"
+   https://www.promptingguide.ai/introduction/settings
+
+Holtzman et al., "The Curious Case of Neural Text Degeneration," ICLR 2020
+   https://arxiv.org/abs/1904.09751
+'''
+
 from openai import OpenAI
 from anthropic import Anthropic
 
 
-# 0.7 is a temperature that strikes an optimal balance between output diversity and
-# code correctness in most cases, although it can be anywhere in the range of 0.4 to 0.8.
-# Reference: DAIR.AI, "Prompt Engineering Guide,"
-#   https://www.promptingguide.ai/introduction/settings
+# 0.7 is a temperature that is an optimal balance between output diversity and
+# code correctness in most cases, although it can be anywhere in the range of 0.4 to 0.8 (DAIR.AI, n.d.)
 DEFAULT_TEMPERATURE = 0.7
 
 # 2048 tokens is sufficient for function implementations
 DEFAULT_MAX_TOKENS = 2048
 
-# Nucleus sampling (top_p=0.95) filters out low-probability tokens while maintaining diversity
-# Reference: Holtzman et al., "The Curious Case of Neural Text Degeneration," ICLR 2020
-#   https://arxiv.org/abs/1904.09751
+# Nucleus sampling (top_p=0.95) filters out low-probability tokens while maintaining diversity (Holtzman et al., 2020)
 DEFAULT_TOP_P = 0.95
 
 
