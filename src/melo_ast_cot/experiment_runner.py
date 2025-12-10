@@ -11,8 +11,8 @@ RANDOM_SEED = 999 # random seed for reproducibility
 RESULTS_DIR = Path("results")
 
 
+# Structure: results/iteration_X/MODEL/CONDITION/sample.json
 def save_sample(sample: dict, iteration: int) -> Path:
-    # Structure: results/iteration_X/MODEL/CONDITION/sample.json
     model = sample["model"]
     condition = sample["condition"]
     sample_dir = RESULTS_DIR / f"iteration_{iteration}" / model / condition
@@ -59,13 +59,11 @@ def generate_sample(task: dict, llm_func, iteration: int, condition: str, model_
 
 
 def select_tasks(tasks: list, n: int = 50) -> list:
-    """Select n random tasks using fixed seed for reproducibility."""
     random.seed(RANDOM_SEED)
     return random.sample(tasks, n)
 
 
 def sample_exists(task_id: str, model_name: str, condition: str, iteration: int) -> bool:
-    """Check if a successful sample already exists for this task/model/condition/iteration."""
     sample_id = f"{task_id}_{model_name}_{condition}_{iteration}"
     path = RESULTS_DIR / f"iteration_{iteration}" / model_name / condition / f"{sample_id}.json"
     if path.exists():
