@@ -41,7 +41,6 @@ class DynamicASTVisitor:
 
 
     def _register_builtin_handlers(self) -> None:
-        """Register simple auto-generated handlers for all known AST types."""
         for name in dir(ast):
             obj = getattr(ast, name)
             if isinstance(obj, type) and issubclass(obj, ast.AST) and obj is not ast.AST:
@@ -55,7 +54,6 @@ class DynamicASTVisitor:
             for field in fields:
                 out[field] = self._process_value(getattr(node, field, None))
 
-            # include source location if available
             if hasattr(node, "lineno"):
                 out["lineno"] = node.lineno
             if hasattr(node, "col_offset"):
@@ -347,25 +345,11 @@ class SecurityVisitor(DynamicASTVisitor):
 _security_visitor = SecurityVisitor()
 
 
-# PUBLIC API FUNCTIONS
+# formatting functions
 
 def code_to_ast_string(code: str) -> str:
-    """Convert code to AST dump string (legacy function).
-
-    References:
-        - Python Software Foundation. "ast — Abstract Syntax Trees." Python 3.x Documentation.
-          https://docs.python.org/3/library/ast.html
-    """
     tree = ast.parse(code)
     return ast.dump(tree, indent=2)
-
-
-
-# By representing the Abstract Syntax Tree (AST) as JSON, the large language model will
-# be thinking about the AST nodes (FunctionDef, Assign, Call, etc), rather than just raw
-# text; this will allow us to implement AST-Guided CoT.
-
-# The below functions are all in regards to formatting with JSON
 
 def code_to_ast_json(code: str) -> str:
     tree = ast.parse(code)
