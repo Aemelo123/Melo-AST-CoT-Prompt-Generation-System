@@ -33,18 +33,11 @@ from typing import Any, Callable, Dict, List, Type
 # DYNAMIC AST VISITOR: Auto-discovery + O(1) Registry Dispatch
 class DynamicASTVisitor:
     def __init__(self):
-        print("DEBUG: starting init")
         self._handlers: Dict[Type[ast.AST], Callable[[ast.AST], Dict[str, Any]]] = {}
-        self._custom_handlers: Dict[Type[ast.AST], Callable[[ast.AST], Dict[str, Any]]] = {}
-
-        # Basic metrics
         self._visit_count = 0
         self._max_depth = 0
         self._type_counts: Dict[str, int] = {}
-
         self._register_builtin_handlers()
-        print(f"DEBUG: registered {len(self._handlers)} handlers")
-        
 
 
     def _register_builtin_handlers(self) -> None:
@@ -83,49 +76,30 @@ class DynamicASTVisitor:
 
     def visit(self, node: ast.AST) -> Dict[str, Any]:
         self._visit_count += 1
-
         node_type = type(node)
-        name = node_type.__name__
-        print(f"DEBUG: visiting {name}")
-        self._type_counts[name] = self._type_counts.get(name, 0) + 1
-
-        if node_type in self._custom_handlers:
-            print(f"DEBUG: using custom handler for {name}")
-            return self._custom_handlers[node_type](node)
+        self._type_counts[node_type.__name__] = self._type_counts.get(node_type.__name__, 0) + 1
 
         handler = self._handlers.get(node_type)
         if handler is None:
-            print(f"DEBUG: no handler found, generating one for {name}")
             handler = self._generate_handler(node_type)
             self._handlers[node_type] = handler
 
         return handler(node)
 
 
-    def register(self, node_type: Type[ast.AST]):
-        def decorator(func: Callable[[ast.AST], Dict[str, Any]]):
-            self._custom_handlers[node_type] = func
-            return func
-        return decorator
-
     def register_handler(self, node_type: Type[ast.AST], handler: Callable[[ast.AST], Dict[str, Any]]) -> None:
-        self._custom_handlers[node_type] = handler
+        """Register a custom handler that overrides the built-in handler for a node type."""
+        self._handlers[node_type] = handler
 
 
     def parse_tree(self, code: str) -> Dict[str, Any]:
-        print("DEBUG: parse_tree called")
         self._visit_count = 0
         self._max_depth = 0
         self._type_counts = {}
 
         tree = ast.parse(code)
-        print(f"DEBUG: parsed code, got {len(tree.body)} top-level nodes")
+        results = [self._walk(node, 0) for node in tree.body]
 
-        results = []
-        for node in tree.body:
-            results.append(self._walk(node, 0))
-
-        print(f"DEBUG: done parsing, visited {self._visit_count} nodes total")
         return {
             "nodes": results,
             "metadata": {
@@ -138,7 +112,6 @@ class DynamicASTVisitor:
         }
 
     def _walk(self, node: ast.AST, depth: int) -> Dict[str, Any]:
-        print(f"DEBUG: walking at depth {depth}")
         self._max_depth = max(self._max_depth, depth)
         data = self.visit(node)
         data["depth"] = depth
@@ -151,7 +124,6 @@ class DynamicASTVisitor:
             "max_depth": self._max_depth,
             "type_counts": dict(self._type_counts),
             "registered_handlers": len(self._handlers),
-            "custom_handlers": len(self._custom_handlers),
         }
 
     def get_registered_types(self) -> List[str]:
@@ -171,11 +143,6 @@ class DynamicASTVisitor:
 #                                      This step is only possible because we have
 #                                      structured output before code generation
 #
-# SecurityVisitor exploits this intermediate representation to validate the LLM's
-# structural output BEFORE code synthesis. If the model's reasoning includes a
-# dangerous pattern (e.g., subprocess.run with user input), we catch it at the
-# structural level - not after the code is already generated.
-#
 # Foundational References:
 #   - Wei et al., "Chain-of-Thought Prompting Elicits Reasoning in Large Language
 #     Models," NeurIPS 2022. https://arxiv.org/abs/2201.11903
@@ -190,8 +157,6 @@ class DynamicASTVisitor:
 #
 #   - Fowler, "Patterns of Enterprise Application Architecture" (2002), pp. 480-485
 #     (Registry Pattern for O(1) handler dispatch)
-#
-
 
 class SecurityVisitor(DynamicASTVisitor):
     DANGEROUS_CALLS = {
@@ -266,8 +231,6 @@ class SecurityVisitor(DynamicASTVisitor):
 
         self._log("Validation complete. Found", len(self._violations), "issues.")
         return self._violations
-
-    # SECURITY RULES
 
     def _check_dangerous_call(self, node: Dict[str, Any]) -> Dict[str, Any] | None:
         self._log("Checking dangerous call")
@@ -379,9 +342,8 @@ class SecurityVisitor(DynamicASTVisitor):
         return None
 
 
-# GLOBAL VISITOR INSTANCES
+# GLOBAL VISITOR INSTANCE
 
-_default_visitor = DynamicASTVisitor()
 _security_visitor = SecurityVisitor()
 
 
@@ -397,28 +359,8 @@ def code_to_ast_string(code: str) -> str:
     tree = ast.parse(code)
     return ast.dump(tree, indent=2)
 
-#
-# Why Use JSON For AST Representation?
-#
-# The large language models we use as part of our code completion system are designed
-# to understand text, but they are not built to work with Python objects directly. In
-# order to make use of the large language model's ability to reason about code structure,
-# we require a way to represent code structure in a format that is both readable by humans
-# and parseable by the large language model. A text based representation of code would be
-# an ideal solution because it meets all four requirements:
-#
-#   1. Human Readability - The JSON key-value pair format is very similar to how you
-#      explain your code structure.
-#
-#   2. Machine Parseable - The large language model will be able to generate valid JSON
-#      that we can parse.
-#
-#   3. Training Data - The large language models have been trained on massive amounts of
-#      JSON (APIs, configuration files, etc).
-#
-#   4. Structured Output - We can ask the LLM for and check that it produces compliant
-#      JSON against a defined JSON schema.
-#
+
+
 # By representing the Abstract Syntax Tree (AST) as JSON, the large language model will
 # be thinking about the AST nodes (FunctionDef, Assign, Call, etc), rather than just raw
 # text; this will allow us to implement AST-Guided CoT.
@@ -426,37 +368,20 @@ def code_to_ast_string(code: str) -> str:
 # The below functions are all in regards to formatting with JSON
 
 def code_to_ast_json(code: str) -> str:
-    """Convert code to AST JSON string (legacy function)."""
     tree = ast.parse(code)
     return json.dumps({"ast": ast.dump(tree)})
 
 def parse_prompt(code: str) -> dict:
-    """
-    Parse code into structured AST representation
-
-    Uses auto-discovery to handle any Python AST node type
-    """
     visitor = DynamicASTVisitor()
     tree = ast.parse(code)
     nodes = [visitor.visit(node) for node in tree.body]
     return {"nodes": nodes}
 
 
-# def _parse_value(value):
-#     """Helper to parse a value that can be a string, dict, or literal."""
-#     if isinstance(value, str):
-#         return ast.Name(id=value, ctx=ast.Load())
-#     elif isinstance(value, dict):
-#         return json_to_ast(value)
-#     else:
-#         return ast.Constant(value=value)
-
-
 _STRING_FIELDS = {"name", "attr", "arg", "id", "module", "asname"}
 
 
 def _convert_value(value: Any, field_name: str = "") -> Any:
-    """Convert a value from LLM JSON to AST node."""
     if isinstance(value, dict) and "type" in value:
         return json_to_ast(value)
     elif isinstance(value, str):
