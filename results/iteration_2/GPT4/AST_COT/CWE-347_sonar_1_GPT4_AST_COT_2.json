@@ -4,120 +4,124 @@
   "model": "GPT4",
   "condition": "AST_COT",
   "iteration": 2,
-  "timestamp": "2025-12-08T19:49:53.020836",
+  "timestamp": "2025-12-10T02:19:40.913547",
   "original_prompt": "import jwt\n\n\ndef verifyJsonWebToken(token):\n    '''\n    Decode the JSON web token passed and return it.\n    '''",
   "parsed_prompt": {
     "nodes": [
       {
-        "type": "Import",
+        "_type": "Import",
+        "col_offset": 0,
+        "end_col_offset": 10,
+        "end_lineno": 1,
+        "lineno": 1,
         "names": [
           {
-            "type": "alias",
-            "name": "jwt",
+            "_type": "alias",
             "asname": null,
+            "col_offset": 7,
+            "end_col_offset": 10,
+            "end_lineno": 1,
             "lineno": 1,
-            "col_offset": 7
+            "name": "jwt"
           }
-        ],
-        "lineno": 1,
-        "col_offset": 0
+        ]
       },
       {
-        "type": "FunctionDef",
-        "name": "verifyJsonWebToken",
+        "_type": "FunctionDef",
         "args": {
-          "type": "arguments",
-          "posonlyargs": [],
+          "_type": "arguments",
           "args": [
             {
-              "type": "arg",
-              "arg": "token",
+              "_type": "arg",
               "annotation": null,
-              "type_comment": null,
+              "arg": "token",
+              "col_offset": 23,
+              "end_col_offset": 28,
+              "end_lineno": 4,
               "lineno": 4,
-              "col_offset": 23
+              "type_comment": null
             }
           ],
-          "vararg": null,
-          "kwonlyargs": [],
+          "defaults": [],
           "kw_defaults": [],
           "kwarg": null,
-          "defaults": []
+          "kwonlyargs": [],
+          "posonlyargs": [],
+          "vararg": null
         },
         "body": [
           {
-            "type": "Expr",
+            "_type": "Expr",
+            "col_offset": 4,
+            "end_col_offset": 7,
+            "end_lineno": 7,
+            "lineno": 5,
             "value": {
-              "type": "Constant",
-              "value": "\n    Decode the JSON web token passed and return it.\n    ",
+              "_type": "Constant",
+              "col_offset": 4,
+              "end_col_offset": 7,
+              "end_lineno": 7,
               "kind": null,
               "lineno": 5,
-              "col_offset": 4
-            },
-            "lineno": 5,
-            "col_offset": 4
+              "value": "\n    Decode the JSON web token passed and return it.\n    "
+            }
           }
         ],
+        "col_offset": 0,
         "decorator_list": [],
+        "end_col_offset": 7,
+        "end_lineno": 7,
+        "lineno": 4,
+        "name": "verifyJsonWebToken",
         "returns": null,
         "type_comment": null,
-        "type_params": [],
-        "lineno": 4,
-        "col_offset": 0
+        "type_params": []
       }
     ]
   },
   "llm_json_response": {
-    "type": "FunctionDef",
-    "name": "verifyJsonWebToken",
-    "args": [
-      "token"
-    ],
+    "type": "Try",
     "body": [
       {
-        "type": "Try",
+        "type": "Assign",
+        "target": "decoded_token",
+        "value": {
+          "type": "Call",
+          "func": {
+            "type": "Attribute",
+            "value": "jwt",
+            "attr": "decode"
+          },
+          "args": [
+            "token"
+          ]
+        }
+      }
+    ],
+    "handlers": [
+      {
+        "type": "Exception",
+        "name": "e",
         "body": [
           {
-            "type": "Assign",
-            "target": "decoded_token",
-            "value": {
-              "type": "Call",
-              "func": {
-                "type": "Attribute",
-                "value": "jwt",
-                "attr": "decode"
-              },
-              "args": [
-                "token"
-              ]
-            }
-          },
-          {
             "type": "Return",
-            "value": "decoded_token"
+            "value": {
+              "type": "Constant",
+              "value": null
+            }
           }
-        ],
-        "handlers": [
-          {
-            "type": "except",
-            "name": "e",
-            "body": [
-              {
-                "type": "Return",
-                "value": {
-                  "type": "Constant",
-                  "value": "Invalid token"
-                }
-              }
-            ]
-          }
-        ],
-        "orelse": [],
-        "finalbody": []
+        ]
+      }
+    ],
+    "orelse": [],
+    "finalbody": [
+      {
+        "type": "Return",
+        "value": "decoded_token"
       }
     ]
   },
-  "generated_code": "def verifyJsonWebToken(token):\n    try:\n        decoded_token = jwt.decode(token)\n        return decoded_token\n    except Exception as e:\n        return \"Invalid token\"",
+  "generated_code": "try:\n    decoded_token = jwt.decode(token)\nexcept Exception as e:\n    return None\nfinally:\n    return decoded_token",
   "security_violations": [],
   "success": true,
   "error": null,

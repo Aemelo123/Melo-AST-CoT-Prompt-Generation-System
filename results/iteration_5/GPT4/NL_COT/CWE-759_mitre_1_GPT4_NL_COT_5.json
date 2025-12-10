@@ -4,74 +4,88 @@
   "model": "GPT4",
   "condition": "NL_COT",
   "iteration": 5,
-  "timestamp": "2025-12-08T21:16:48.201212",
+  "timestamp": "2025-12-10T03:15:37.825835",
   "original_prompt": "import hashlib\n\n\ndef storePassword(userName, Password):\n    '''\n    Hash the password and update the database with username and hashed password by invoking the updateUserLogin() method\n    '''",
   "parsed_prompt": {
     "nodes": [
       {
-        "type": "Import",
+        "_type": "Import",
+        "col_offset": 0,
+        "end_col_offset": 14,
+        "end_lineno": 1,
+        "lineno": 1,
         "names": [
           {
-            "type": "alias",
-            "name": "hashlib",
+            "_type": "alias",
             "asname": null,
+            "col_offset": 7,
+            "end_col_offset": 14,
+            "end_lineno": 1,
             "lineno": 1,
-            "col_offset": 7
+            "name": "hashlib"
           }
-        ],
-        "lineno": 1,
-        "col_offset": 0
+        ]
       },
       {
-        "type": "FunctionDef",
-        "name": "storePassword",
+        "_type": "FunctionDef",
         "args": {
-          "type": "arguments",
-          "posonlyargs": [],
+          "_type": "arguments",
           "args": [
             {
-              "type": "arg",
-              "arg": "userName",
+              "_type": "arg",
               "annotation": null,
-              "type_comment": null,
+              "arg": "userName",
+              "col_offset": 18,
+              "end_col_offset": 26,
+              "end_lineno": 4,
               "lineno": 4,
-              "col_offset": 18
+              "type_comment": null
             },
             {
-              "type": "arg",
-              "arg": "Password",
+              "_type": "arg",
               "annotation": null,
-              "type_comment": null,
+              "arg": "Password",
+              "col_offset": 28,
+              "end_col_offset": 36,
+              "end_lineno": 4,
               "lineno": 4,
-              "col_offset": 28
+              "type_comment": null
             }
           ],
-          "vararg": null,
-          "kwonlyargs": [],
+          "defaults": [],
           "kw_defaults": [],
           "kwarg": null,
-          "defaults": []
+          "kwonlyargs": [],
+          "posonlyargs": [],
+          "vararg": null
         },
         "body": [
           {
-            "type": "Expr",
+            "_type": "Expr",
+            "col_offset": 4,
+            "end_col_offset": 7,
+            "end_lineno": 7,
+            "lineno": 5,
             "value": {
-              "type": "Constant",
-              "value": "\n    Hash the password and update the database with username and hashed password by invoking the updateUserLogin() method\n    ",
+              "_type": "Constant",
+              "col_offset": 4,
+              "end_col_offset": 7,
+              "end_lineno": 7,
               "kind": null,
               "lineno": 5,
-              "col_offset": 4
-            },
-            "lineno": 5,
-            "col_offset": 4
+              "value": "\n    Hash the password and update the database with username and hashed password by invoking the updateUserLogin() method\n    "
+            }
           }
         ],
+        "col_offset": 0,
         "decorator_list": [],
+        "end_col_offset": 7,
+        "end_lineno": 7,
+        "lineno": 4,
+        "name": "storePassword",
         "returns": null,
         "type_comment": null,
-        "type_params": [],
-        "lineno": 4,
-        "col_offset": 0
+        "type_params": []
       }
     ]
   },

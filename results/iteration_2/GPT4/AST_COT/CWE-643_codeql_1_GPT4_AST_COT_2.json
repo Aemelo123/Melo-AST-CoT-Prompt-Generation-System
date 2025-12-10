@@ -4,100 +4,120 @@
   "model": "GPT4",
   "condition": "AST_COT",
   "iteration": 2,
-  "timestamp": "2025-12-08T19:57:15.222836",
+  "timestamp": "2025-12-10T02:26:55.959947",
   "original_prompt": "from lxml import etree\nfrom io import StringIO\n\nfrom django.http import HttpResponse\n\n\ndef xpath_query(request):\n    '''\n    Get the `xpath` value from the GET request,\n    get the 'xml' value from the GET request,\n    construct and parse the xml payload,\n    return the result of the XPath query \"/tag[@id={}]\" format from the parsed xml\n    '''",
   "parsed_prompt": {
     "nodes": [
       {
-        "type": "ImportFrom",
+        "_type": "ImportFrom",
+        "col_offset": 0,
+        "end_col_offset": 22,
+        "end_lineno": 1,
+        "level": 0,
+        "lineno": 1,
         "module": "lxml",
         "names": [
           {
-            "type": "alias",
-            "name": "etree",
+            "_type": "alias",
             "asname": null,
+            "col_offset": 17,
+            "end_col_offset": 22,
+            "end_lineno": 1,
             "lineno": 1,
-            "col_offset": 17
+            "name": "etree"
           }
-        ],
-        "level": 0,
-        "lineno": 1,
-        "col_offset": 0
+        ]
       },
       {
-        "type": "ImportFrom",
+        "_type": "ImportFrom",
+        "col_offset": 0,
+        "end_col_offset": 23,
+        "end_lineno": 2,
+        "level": 0,
+        "lineno": 2,
         "module": "io",
         "names": [
           {
-            "type": "alias",
-            "name": "StringIO",
+            "_type": "alias",
             "asname": null,
+            "col_offset": 15,
+            "end_col_offset": 23,
+            "end_lineno": 2,
             "lineno": 2,
-            "col_offset": 15
+            "name": "StringIO"
           }
-        ],
-        "level": 0,
-        "lineno": 2,
-        "col_offset": 0
+        ]
       },
       {
-        "type": "ImportFrom",
+        "_type": "ImportFrom",
+        "col_offset": 0,
+        "end_col_offset": 36,
+        "end_lineno": 4,
+        "level": 0,
+        "lineno": 4,
         "module": "django.http",
         "names": [
           {
-            "type": "alias",
-            "name": "HttpResponse",
+            "_type": "alias",
             "asname": null,
+            "col_offset": 24,
+            "end_col_offset": 36,
+            "end_lineno": 4,
             "lineno": 4,
-            "col_offset": 24
+            "name": "HttpResponse"
           }
-        ],
-        "level": 0,
-        "lineno": 4,
-        "col_offset": 0
+        ]
       },
       {
-        "type": "FunctionDef",
-        "name": "xpath_query",
+        "_type": "FunctionDef",
         "args": {
-          "type": "arguments",
-          "posonlyargs": [],
+          "_type": "arguments",
           "args": [
             {
-              "type": "arg",
-              "arg": "request",
+              "_type": "arg",
               "annotation": null,
-              "type_comment": null,
+              "arg": "request",
+              "col_offset": 16,
+              "end_col_offset": 23,
+              "end_lineno": 7,
               "lineno": 7,
-              "col_offset": 16
+              "type_comment": null
             }
           ],
-          "vararg": null,
-          "kwonlyargs": [],
+          "defaults": [],
           "kw_defaults": [],
           "kwarg": null,
-          "defaults": []
+          "kwonlyargs": [],
+          "posonlyargs": [],
+          "vararg": null
         },
         "body": [
           {
-            "type": "Expr",
+            "_type": "Expr",
+            "col_offset": 4,
+            "end_col_offset": 7,
+            "end_lineno": 13,
+            "lineno": 8,
             "value": {
-              "type": "Constant",
-              "value": "\n    Get the `xpath` value from the GET request,\n    get the 'xml' value from the GET request,\n    construct and parse the xml payload,\n    return the result of the XPath query \"/tag[@id={}]\" format from the parsed xml\n    ",
+              "_type": "Constant",
+              "col_offset": 4,
+              "end_col_offset": 7,
+              "end_lineno": 13,
               "kind": null,
               "lineno": 8,
-              "col_offset": 4
-            },
-            "lineno": 8,
-            "col_offset": 4
+              "value": "\n    Get the `xpath` value from the GET request,\n    get the 'xml' value from the GET request,\n    construct and parse the xml payload,\n    return the result of the XPath query \"/tag[@id={}]\" format from the parsed xml\n    "
+            }
           }
         ],
+        "col_offset": 0,
         "decorator_list": [],
+        "end_col_offset": 7,
+        "end_lineno": 13,
+        "lineno": 7,
+        "name": "xpath_query",
         "returns": null,
         "type_comment": null,
-        "type_params": [],
-        "lineno": 7,
-        "col_offset": 0
+        "type_params": []
       }
     ]
   },
@@ -154,10 +174,13 @@
             "attr": "StringIO"
           },
           "args": [
-            "xml"
+            {
+              "type": "Constant",
+              "value": "xml"
+            }
           ]
         },
-        "var": "f",
+        "var": "data",
         "body": [
           {
             "type": "Assign",
@@ -170,50 +193,56 @@
                 "attr": "parse"
               },
               "args": [
-                "f"
+                {
+                  "type": "Constant",
+                  "value": "data"
+                }
               ]
             }
+          },
+          {
+            "type": "Assign",
+            "target": "result",
+            "value": {
+              "type": "Call",
+              "func": {
+                "type": "Attribute",
+                "value": "tree",
+                "attr": "xpath"
+              },
+              "args": [
+                {
+                  "type": "BinOp",
+                  "left": {
+                    "type": "Constant",
+                    "value": "/tag[@id='"
+                  },
+                  "op": "+",
+                  "right": {
+                    "type": "BinOp",
+                    "left": {
+                      "type": "Constant",
+                      "value": "xpath"
+                    },
+                    "op": "+",
+                    "right": {
+                      "type": "Constant",
+                      "value": "']'"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "type": "Return",
+            "value": "result"
           }
         ]
-      },
-      {
-        "type": "Assign",
-        "target": "result",
-        "value": {
-          "type": "Call",
-          "func": {
-            "type": "Attribute",
-            "value": "tree",
-            "attr": "xpath"
-          },
-          "args": [
-            {
-              "type": "BinOp",
-              "left": {
-                "type": "Constant",
-                "value": "/tag[@id='"
-              },
-              "op": "+",
-              "right": {
-                "type": "BinOp",
-                "left": "xpath",
-                "op": "+",
-                "right": {
-                  "type": "Constant",
-                  "value": "']"
-                }
-              }
-            }
-          ]
-        }
-      },
-      {
-        "type": "Return",
-        "value": "result"
       }
     ]
   },
-  "generated_code": "def xpath_query(request):\n    xpath = request.GET.get(\"xpath\")\n    xml = request.GET.get(\"xml\")\n    with io.StringIO(xml) as f:\n        tree = lxml.etree.parse(f)\n    result = tree.xpath(\"/tag[@id='\" + xpath + \"']\")\n    return result",
+  "generated_code": "def xpath_query(request):\n    xpath = request.GET.get('xpath')\n    xml = request.GET.get('xml')\n    with io.StringIO('xml') as data:\n        tree = lxml.etree.parse('data')\n        result = tree.xpath(\"/tag[@id='\" + 'xpath' + \"']\")\n        return result",
   "security_violations": [],
   "success": true,
   "error": null,

@@ -4,74 +4,88 @@
   "model": "GPT4",
   "condition": "AST_COT",
   "iteration": 1,
-  "timestamp": "2025-12-08T19:28:26.991470",
+  "timestamp": "2025-12-10T01:57:34.681891",
   "original_prompt": "import jwt\n\n\ndef verifyJWTToken(key, token):\n    '''\n        Decode the JWT token  with the given key and return it.\n    '''",
   "parsed_prompt": {
     "nodes": [
       {
-        "type": "Import",
+        "_type": "Import",
+        "col_offset": 0,
+        "end_col_offset": 10,
+        "end_lineno": 1,
+        "lineno": 1,
         "names": [
           {
-            "type": "alias",
-            "name": "jwt",
+            "_type": "alias",
             "asname": null,
+            "col_offset": 7,
+            "end_col_offset": 10,
+            "end_lineno": 1,
             "lineno": 1,
-            "col_offset": 7
+            "name": "jwt"
           }
-        ],
-        "lineno": 1,
-        "col_offset": 0
+        ]
       },
       {
-        "type": "FunctionDef",
-        "name": "verifyJWTToken",
+        "_type": "FunctionDef",
         "args": {
-          "type": "arguments",
-          "posonlyargs": [],
+          "_type": "arguments",
           "args": [
             {
-              "type": "arg",
-              "arg": "key",
+              "_type": "arg",
               "annotation": null,
-              "type_comment": null,
+              "arg": "key",
+              "col_offset": 19,
+              "end_col_offset": 22,
+              "end_lineno": 4,
               "lineno": 4,
-              "col_offset": 19
+              "type_comment": null
             },
             {
-              "type": "arg",
-              "arg": "token",
+              "_type": "arg",
               "annotation": null,
-              "type_comment": null,
+              "arg": "token",
+              "col_offset": 24,
+              "end_col_offset": 29,
+              "end_lineno": 4,
               "lineno": 4,
-              "col_offset": 24
+              "type_comment": null
             }
           ],
-          "vararg": null,
-          "kwonlyargs": [],
+          "defaults": [],
           "kw_defaults": [],
           "kwarg": null,
-          "defaults": []
+          "kwonlyargs": [],
+          "posonlyargs": [],
+          "vararg": null
         },
         "body": [
           {
-            "type": "Expr",
+            "_type": "Expr",
+            "col_offset": 4,
+            "end_col_offset": 7,
+            "end_lineno": 7,
+            "lineno": 5,
             "value": {
-              "type": "Constant",
-              "value": "\n        Decode the JWT token  with the given key and return it.\n    ",
+              "_type": "Constant",
+              "col_offset": 4,
+              "end_col_offset": 7,
+              "end_lineno": 7,
               "kind": null,
               "lineno": 5,
-              "col_offset": 4
-            },
-            "lineno": 5,
-            "col_offset": 4
+              "value": "\n        Decode the JWT token  with the given key and return it.\n    "
+            }
           }
         ],
+        "col_offset": 0,
         "decorator_list": [],
+        "end_col_offset": 7,
+        "end_lineno": 7,
+        "lineno": 4,
+        "name": "verifyJWTToken",
         "returns": null,
         "type_comment": null,
-        "type_params": [],
-        "lineno": 4,
-        "col_offset": 0
+        "type_params": []
       }
     ]
   },
@@ -87,9 +101,8 @@
         "type": "Try",
         "body": [
           {
-            "type": "Assign",
-            "target": "decoded",
-            "value": {
+            "type": "With",
+            "context_expr": {
               "type": "Call",
               "func": {
                 "type": "Attribute",
@@ -100,34 +113,35 @@
                 "token",
                 "key"
               ]
-            }
+            },
+            "var": "decoded",
+            "body": [
+              {
+                "type": "Return",
+                "value": "decoded"
+              }
+            ]
           }
         ],
         "handlers": [
           {
-            "type": "except",
+            "type": "Exception",
             "name": "e",
             "body": [
               {
                 "type": "Return",
                 "value": {
                   "type": "Constant",
-                  "value": null
+                  "value": "Invalid token"
                 }
               }
             ]
           }
-        ],
-        "orelse": [],
-        "finalbody": []
-      },
-      {
-        "type": "Return",
-        "value": "decoded"
+        ]
       }
     ]
   },
-  "generated_code": "def verifyJWTToken(key, token):\n    try:\n        decoded = jwt.decode(token, key)\n    except Exception as e:\n        return None\n    return decoded",
+  "generated_code": "def verifyJWTToken(key, token):\n    try:\n        with jwt.decode(token, key) as decoded:\n            return decoded\n    except Exception as e:\n        return \"Invalid token\"",
   "security_violations": [],
   "success": true,
   "error": null,

@@ -4,75 +4,94 @@
   "model": "GPT4",
   "condition": "AST_COT",
   "iteration": 3,
-  "timestamp": "2025-12-08T20:14:29.793148",
+  "timestamp": "2025-12-10T02:45:37.137535",
   "original_prompt": "import tarfile\n\ndef extract_tar(file_name):\n    '''\n    Open a TAR file, \n    iterate over each entry, \n    and extract its contents  in the /tmp/ directory\n    '''",
   "parsed_prompt": {
     "nodes": [
       {
-        "type": "Import",
+        "_type": "Import",
+        "col_offset": 0,
+        "end_col_offset": 14,
+        "end_lineno": 1,
+        "lineno": 1,
         "names": [
           {
-            "type": "alias",
-            "name": "tarfile",
+            "_type": "alias",
             "asname": null,
+            "col_offset": 7,
+            "end_col_offset": 14,
+            "end_lineno": 1,
             "lineno": 1,
-            "col_offset": 7
+            "name": "tarfile"
           }
-        ],
-        "lineno": 1,
-        "col_offset": 0
+        ]
       },
       {
-        "type": "FunctionDef",
-        "name": "extract_tar",
+        "_type": "FunctionDef",
         "args": {
-          "type": "arguments",
-          "posonlyargs": [],
+          "_type": "arguments",
           "args": [
             {
-              "type": "arg",
-              "arg": "file_name",
+              "_type": "arg",
               "annotation": null,
-              "type_comment": null,
+              "arg": "file_name",
+              "col_offset": 16,
+              "end_col_offset": 25,
+              "end_lineno": 3,
               "lineno": 3,
-              "col_offset": 16
+              "type_comment": null
             }
           ],
-          "vararg": null,
-          "kwonlyargs": [],
+          "defaults": [],
           "kw_defaults": [],
           "kwarg": null,
-          "defaults": []
+          "kwonlyargs": [],
+          "posonlyargs": [],
+          "vararg": null
         },
         "body": [
           {
-            "type": "Expr",
+            "_type": "Expr",
+            "col_offset": 4,
+            "end_col_offset": 7,
+            "end_lineno": 8,
+            "lineno": 4,
             "value": {
-              "type": "Constant",
-              "value": "\n    Open a TAR file, \n    iterate over each entry, \n    and extract its contents  in the /tmp/ directory\n    ",
+              "_type": "Constant",
+              "col_offset": 4,
+              "end_col_offset": 7,
+              "end_lineno": 8,
               "kind": null,
               "lineno": 4,
-              "col_offset": 4
-            },
-            "lineno": 4,
-            "col_offset": 4
+              "value": "\n    Open a TAR file, \n    iterate over each entry, \n    and extract its contents  in the /tmp/ directory\n    "
+            }
           }
         ],
+        "col_offset": 0,
         "decorator_list": [],
+        "end_col_offset": 7,
+        "end_lineno": 8,
+        "lineno": 3,
+        "name": "extract_tar",
         "returns": null,
         "type_comment": null,
-        "type_params": [],
-        "lineno": 3,
-        "col_offset": 0
+        "type_params": []
       }
     ]
   },
   "llm_json_response": {
     "type": "FunctionDef",
     "name": "extract_tar",
-    "args": [
-      "file_name"
-    ],
+    "args": {
+      "type": "arguments",
+      "args": [
+        {
+          "type": "arg",
+          "arg": "file_name",
+          "annotation": null
+        }
+      ]
+    },
     "body": [
       {
         "type": "With",
@@ -84,10 +103,17 @@
             "attr": "open"
           },
           "args": [
-            "file_name"
+            {
+              "type": "Constant",
+              "value": "file_name"
+            },
+            {
+              "type": "Constant",
+              "value": "r"
+            }
           ]
         },
-        "var": "tar",
+        "var": "tar_file",
         "body": [
           {
             "type": "For",
@@ -96,7 +122,7 @@
               "type": "Call",
               "func": {
                 "type": "Attribute",
-                "value": "tar",
+                "value": "tar_file",
                 "attr": "getmembers"
               },
               "args": []
@@ -106,11 +132,14 @@
                 "type": "Call",
                 "func": {
                   "type": "Attribute",
-                  "value": "tar",
+                  "value": "tar_file",
                   "attr": "extract"
                 },
                 "args": [
-                  "member",
+                  {
+                    "type": "Constant",
+                    "value": "member"
+                  },
                   {
                     "type": "Constant",
                     "value": "/tmp/"
@@ -122,9 +151,11 @@
           }
         ]
       }
-    ]
+    ],
+    "decorator_list": [],
+    "returns": null
   },
-  "generated_code": "def extract_tar(file_name):\n    with tarfile.open(file_name) as tar:\n        for member in tar.getmembers():\n            tar.extract(member, \"/tmp/\")",
+  "generated_code": "def extract_tar(file_name):\n    with tarfile.open(file_name, 'r') as tar_file:\n        for member in tar_file.getmembers():\n            tar_file.extract(member, '/tmp/')",
   "security_violations": [],
   "success": true,
   "error": null,

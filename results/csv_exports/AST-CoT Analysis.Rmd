@@ -1,0 +1,281 @@
+---
+title: "Statistical Analysis: AST-Guided Chain-of-Thought Prompting Technique"
+author: "Alberto Melo"
+date: "2025-12-10"
+output: 
+  html_document:
+    toc: true
+    number_sections: true
+    theme: cosmo
+    code_folding: hide
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, comment = "", fig.align = "center")
+
+set.seed(999)
+```
+
+```{r required-packages}
+library(dplyr)
+library(rstatix)
+```
+
+# Data Loading
+```{r load-data}
+
+data_path <- "../csv_exports/"
+
+experiment_data <- paste0(data_path, "experiment_results_iteration_", 1:5, ".csv") %>%
+  lapply(read.csv) %>%
+  bind_rows() %>%
+  mutate(
+    condition = factor(condition,
+                       levels = c("AST_COT", "NL_COT"),
+                       labels = c("AST-Guided CoT", "Natural Language CoT")),
+    model = factor(model,
+                   levels = c("CLAUDE", "GPT4"),
+                   labels = c("Claude", "GPT-4")),
+    has_vulnerability = factor(num_vulnerabilities > 0, labels = c("No", "Yes"))
+  )
+
+cat("Total observations:", nrow(experiment_data), "\n")
+cat("Samples per condition:", nrow(experiment_data)/2, "\n")
+
+```
+
+# Descriptive Statistics
+
+```{r desc-by-condition}
+experiment_data %>%
+  group_by(Condition = condition) %>%
+  summarise(
+    n = n(),
+    `Total Vulns` = sum(num_vulnerabilities),
+    Mean = round(mean(num_vulnerabilities), 3),
+    SD = round(sd(num_vulnerabilities), 3),
+    `Samples w/ Vulns` = sum(has_vulnerability == "Yes"),
+    `Vuln Rate (%)` = round(mean(has_vulnerability == "Yes") * 100, 1),
+    .groups = "drop"
+  ) %>%
+  knitr::kable(caption = "Table 1: Vulnerability Statistics by Prompting Method")
+```
+
+
+```{r desc-by-group}
+experiment_data %>%
+  group_by(Condition = condition, Model = model) %>%
+  summarise(
+    n = n(),
+    `Total Vulns` = sum(num_vulnerabilities),
+    Mean = round(mean(num_vulnerabilities), 3),
+    SD = round(sd(num_vulnerabilities), 3),
+    `Vuln Rate (%)` = round(mean(has_vulnerability == "Yes") * 100, 1),
+    .groups = "drop"
+  ) %>%
+  knitr::kable(caption = "Table 2: Vulnerability Statistics by Treatment Group")
+```
+
+# Assumption Testing
+```{r assumptions}
+# Shapiro-Wilk test for normality
+shapiro_ast <- shapiro.test(experiment_data$num_vulnerabilities[experiment_data$condition == "AST-Guided CoT"])
+shapiro_nl <- shapiro.test(experiment_data$num_vulnerabilities[experiment_data$condition == "Natural Language CoT"])
+
+# Levene's test for homogeneity of variance
+levene_result <- experiment_data %>%
+  levene_test(num_vulnerabilities ~ condition)
+
+data.frame(
+  Test = c("Shapiro-Wilk (AST-Guided)", "Shapiro-Wilk (NL CoT)", "Levene's Test"),
+  Statistic = c(round(shapiro_ast$statistic, 4), round(shapiro_nl$statistic, 4), round(levene_result$statistic, 4)),
+  `p-value` = c(round(shapiro_ast$p.value, 4), round(shapiro_nl$p.value, 4), round(levene_result$p, 4)),
+  Result = c(
+    ifelse(shapiro_ast$p.value > 0.05, "Normal", "Non-normal"),
+    ifelse(shapiro_nl$p.value > 0.05, "Normal", "Non-normal"),
+    ifelse(levene_result$p > 0.05, "Equal variances", "Unequal variances")
+  ),
+  check.names = FALSE
+) %>%
+  knitr::kable(caption = "Table 3: Assumption Tests")
+```
+
+*Note: Shapiro-Wilk tests normality (p > 0.05 = normal). Levene's tests equal variances (p > 0.05 = equal variances).*
+
+# Hypothesis testing
+
+## Chi-Square Test
+
+Testing association between prompting method and vulnerabilities
+
+```{r chi-square}
+# contingency table
+contingency <- table(experiment_data$condition, experiment_data$has_vulnerability)
+
+knitr::kable(contingency, caption = "Table 3: Contingency Table")
+
+# Chi-square test
+chi_result <- chisq.test(contingency)
+cramers_v <- sqrt(chi_result$statistic / nrow(experiment_data))
+
+data.frame(
+  Statistic = c("Chi-Square", "Degrees of Freedom", "p-value", "Cramer's V", "Effect Size"),
+  Value = c(
+    round(chi_result$statistic, 3),
+    chi_result$parameter,
+    round(chi_result$p.value, 4),
+    round(cramers_v, 3),
+    ifelse(cramers_v < 0.1, "Negligible", 
+           ifelse(cramers_v < 0.3, "Small", 
+                  ifelse(cramers_v < 0.5, "Medium", "Large")))
+  )
+) %>%
+  knitr::kable(caption = "Table 4: Chi-Square Test Results", row.names = FALSE)
+```
+*Note: p < 0.05 indicates a significant association between prompting method and vulnerability presence.*
+
+## Two-way ANOVA
+```{r anova}
+anova_result <- experiment_data %>%
+  anova_test(num_vulnerabilities ~ condition * model, effect.size = "pes")
+
+data.frame(
+  Effect = c("Prompting Method", "LLM Model", "Interaction"),
+  `df (numerator)` = anova_result$DFn,
+  `df (denominator)` = anova_result$DFd,
+  `Test Statistic (F)` = round(anova_result$F, 3),
+  `Probability (p)` = round(anova_result$p, 4),
+  `Partial Eta-Squared` = round(anova_result$pes, 4),
+  Significant = ifelse(anova_result$p < 0.05, "Yes", "No"),
+  check.names = FALSE
+) %>%
+  knitr::kable(caption = "Table 5: Two-Way ANOVA Results")
+```
+
+# Regression Analysis
+
+## Logistic Regression
+
+Predicts probability of having a vulnerability from prompting method and LLM model.
+```{r logistic-regression}
+experiment_data$has_vuln_binary <- ifelse(experiment_data$has_vulnerability == "Yes", 1, 0)
+
+logit_model <- glm(has_vuln_binary ~ condition + model, data = experiment_data, family = binomial)
+logit_summary <- summary(logit_model)
+
+odds_ratios <- exp(coef(logit_model))
+
+data.frame(
+  Predictor = c("Intercept", "Prompting Method (NL CoT)", "Model (GPT-4)"),
+  Estimate = round(logit_summary$coefficients[, "Estimate"], 4),
+  `Std. Error` = round(logit_summary$coefficients[, "Std. Error"], 4),
+  `Test Statistic (z)` = round(logit_summary$coefficients[, "z value"], 3),
+  `Probability (p)` = round(logit_summary$coefficients[, "Pr(>|z|)"], 4),
+  `Odds Ratio` = round(odds_ratios, 3),
+  check.names = FALSE
+) %>%
+  knitr::kable(caption = "Table 6: Logistic Regression Results", row.names = FALSE)
+```
+ 
+*Note: Odds ratio > 1 means increased odds of vulnerability; < 1 means decreased odds. (Hosmer et al., 2013).*
+
+## Multiple Regression
+
+Predicts vulnerability count from prompting method, LLM model, and code length (LOC).
+```{r multiple-regression}
+reg_model <- lm(num_vulnerabilities ~ condition + model + loc, data = experiment_data)
+reg_summary <- summary(reg_model)
+
+data.frame(
+  Predictor = c("Intercept", "Prompting Method (NL CoT)", "Model (GPT-4)", "Lines of Code"),
+  Estimate = round(reg_summary$coefficients[, "Estimate"], 4),
+  `Std. Error` = round(reg_summary$coefficients[, "Std. Error"], 4),
+  `Test Statistic (t)` = round(reg_summary$coefficients[, "t value"], 3),
+  `Probability (p)` = round(reg_summary$coefficients[, "Pr(>|t|)"], 4),
+  check.names = FALSE
+) %>%
+  knitr::kable(caption = "Table 7: Multiple Regression Results", row.names = FALSE)
+
+cat("R-squared:", round(reg_summary$r.squared, 4), "\n")
+cat("Adjusted R-squared:", round(reg_summary$adj.r.squared, 4), "\n")
+```
+
+*Note: Negative estimate for prompting method shows that AST-Guided CoT produces fewer vulnerabilities than NL CoT. (Cohen et al., 2003).*
+
+# Results Summary
+```{r summary}
+ast_total <- sum(experiment_data$num_vulnerabilities[experiment_data$condition == "AST-Guided CoT"])
+nl_total <- sum(experiment_data$num_vulnerabilities[experiment_data$condition == "Natural Language CoT"])
+reduction <- round((nl_total - ast_total) / nl_total * 100, 1)
+
+data.frame(
+  Metric = c(
+    "Total Observations",
+    "AST-Guided Total Vulnerabilities",
+    "NL CoT Total Vulnerabilities", 
+    "Vulnerability Reduction",
+    "Chi-Square Test",
+    "Logistic Regression (Condition)",
+    "Multiple Regression (Condition)"
+  ),
+  Result = c(
+    nrow(experiment_data),
+    ast_total,
+    nl_total,
+    paste0(reduction, "%"),
+    paste0("Chi-Square = ", round(chi_result$statistic, 3), ", p = ", round(chi_result$p.value, 4)),
+    paste0("OR = ", round(odds_ratios[2], 3), ", p = ", round(logit_summary$coefficients[2, "Pr(>|z|)"], 4)),
+    paste0("b = ", round(reg_summary$coefficients[2, "Estimate"], 3), ", p = ", round(reg_summary$coefficients[2, "Pr(>|t|)"], 4))
+  )
+) %>%
+  knitr::kable(caption = "Table 8: Results Summary", row.names = FALSE)
+```
+
+# Visualization
+```{r bar-chart, fig.cap="Figure 1: Total Vulnerabilities by Prompting Method"}
+totals <- aggregate(num_vulnerabilities ~ condition, data = experiment_data, sum)
+reduction <- round((totals$num_vulnerabilities[2] - totals$num_vulnerabilities[1]) / 
+                    totals$num_vulnerabilities[2] * 100, 1)
+
+barplot(totals$num_vulnerabilities, 
+        names.arg = totals$condition,
+        col = c("steelblue", "coral"),
+        main = "Total Vulnerabilities by Prompting Method",
+        ylab = "Total Vulnerability Count",
+        ylim = c(0, max(totals$num_vulnerabilities) * 1.3))
+text(x = c(0.7, 1.9), y = totals$num_vulnerabilities + 3, 
+     labels = totals$num_vulnerabilities, cex = 1.2, font = 2)
+mtext(paste0(reduction, "% Reduction"), side = 3, line = -2, cex = 1.2, col = "darkgreen")
+```
+```{r interaction-plot, fig.cap="Figure 2: Interaction Plot - Prompting Method x LLM Model"}
+interaction.plot(experiment_data$model, experiment_data$condition, experiment_data$num_vulnerabilities,
+                 type = "b", col = c("steelblue", "coral"), pch = c(16, 17), lwd = 2,
+                 main = "Mean Vulnerabilities: Prompting Method x LLM Model",
+                 xlab = "LLM Model", ylab = "Mean Vulnerability Count",
+                 legend = TRUE, trace.label = "Method")
+```
+```{r vuln-rate-plot, fig.cap="Figure 3: Vulnerability Rate by Treatment Group"}
+rate_data <- experiment_data %>%
+  group_by(condition, model) %>%
+  summarise(rate = mean(has_vulnerability == "Yes") * 100, .groups = "drop")
+
+barplot(matrix(rate_data$rate, nrow = 2, byrow = TRUE),
+        beside = TRUE,
+        names.arg = c("Claude", "GPT-4"),
+        col = c("steelblue", "coral"),
+        main = "Vulnerability Rate by Treatment Group",
+        ylab = "Samples with Vulnerabilities (%)",
+        ylim = c(0, 50),
+        legend.text = c("AST-Guided CoT", "NL CoT"),
+        args.legend = list(x = "topright"))
+```
+
+# References
+
+- Garson, G. D. (2012). Testing statistical assumptions.
+- Kassambara, A. (2019). rstatix: Pipe-friendly framework for basic statistical tests. CRAN: Contributed packages.
+- Paquot, M., & Larsson, T. (2021). Descriptive statistics and visualization with R. In A practical handbook of corpus linguistics (pp. 375-399). Cham: Springer International Publishing.
+
+
+
