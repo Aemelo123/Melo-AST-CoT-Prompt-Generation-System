@@ -36,7 +36,7 @@ References:
       35, 22199-22213. https://arxiv.org/abs/2205.11916
 """
 
-from melo_ast_cot.ast_parser import _extract_imports, _extract_args, parse_prompt as parse_code, SecurityVisitor
+from melo_ast_cot.ast_parser import _extract_imports, _extract_args, _get_node_type, parse_prompt as parse_code, SecurityValidator
 
 
 def _extract_code(response: str) -> str:
@@ -56,9 +56,10 @@ def get_nl_cot_code(parsed_prompt: dict, llm_func) -> tuple[str, list]:
 
     # Extract function definition and imports from parsed AST
     for node in parsed_prompt["nodes"]:
-        if node["type"] == "FunctionDef":
+        node_type = _get_node_type(node)
+        if node_type == "FunctionDef":
             func_info = node
-        elif node["type"] in ("Import", "ImportFrom"):
+        elif node_type in ("Import", "ImportFrom"):
             imports.extend(_extract_imports(node))
 
     if not func_info:
@@ -73,9 +74,9 @@ def get_nl_cot_code(parsed_prompt: dict, llm_func) -> tuple[str, list]:
     docstring = func_info.get("docstring")
     if docstring is None and "body" in func_info:
         body = func_info.get("body", [])
-        if body and isinstance(body[0], dict) and body[0].get("type") == "Expr":
+        if body and isinstance(body[0], dict) and _get_node_type(body[0]) == "Expr":
             expr_value = body[0].get("value", {})
-            if isinstance(expr_value, dict) and expr_value.get("type") == "Constant":
+            if isinstance(expr_value, dict) and _get_node_type(expr_value) == "Constant":
                 docstring = expr_value.get("value")
 
     # Construct NL CoT prompt with "Let's think step by step" trigger (Kojima et al., 2022)
@@ -97,7 +98,7 @@ Let's think step by step."""
     code = _extract_code(response)
 
     # Post-hoc security validation (same rules as AST_COT for fair comparison)
-    security_visitor = SecurityVisitor()
+    security_validator = SecurityValidator()
     violations = []
 
     # Retry loop for security fix attempts
@@ -109,7 +110,7 @@ Let's think step by step."""
 
             # Validate each node against security rules
             for node in parsed_code.get("nodes", []):
-                node_violations = security_visitor.validate(node)
+                node_violations = security_validator.validate(node)
                 violations.extend(node_violations)
 
             # If violations found, prompt LLM to fix (retry mechanism)

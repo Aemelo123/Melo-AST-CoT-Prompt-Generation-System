@@ -1,162 +1,27 @@
 """
-Dynamic AST Parser with Registry Pattern and Security Validation
-
-DynamicASTVisitor:
-    With Fowler's (2002) Registry Pattern, the AST Parser can call on the correct handler 
-    in O(1) time. Instead of having to go through approximately 70 conditionals to see 
-    which class of AST Node was matched, we register each AST Node type's handler by class 
-    in a Hash Table so when we traverse the AST Tree, we can find it in constant time. Using 
-    this pattern makes the design both scalable and extensible. If a developer wants to create 
-    a new Handler for an AST Node Type, they only have to add it to the Registry and do not 
-    have to alter their existing code.
+AST Parser with Security Validation
 
 References:
     - Li, J., Li, G., Li, Y., & Jin, Z. (2025). Structured chain-of-thought prompting for
         code generation. ACM Transactions on Software Engineering and Methodology, 34(2),
         Article 37. https://doi.org/10.1145/3690635
-        (Where the idea stems from for the abstract syntax tree)
 
-    - Gamma et al., "Design Patterns" (1994) - Visitor Pattern
-    - Martin Fowler, Patterns of Enterprise Application Architecture (Addison-Wesley, 2002),
-        pp. 480-485.
     - Python Software Foundation. "ast — Abstract Syntax Trees." Python 3.x Documentation.
         https://docs.python.org/3/library/ast.html
-    - GeeksforGeeks. "DFS Traversal of a Tree Using Recursion."
-        https://www.geeksforgeeks.org/dsa/dfs-traversal-of-a-tree-using-recursion/
 """
 
 import ast
 import json
-from typing import Any, Callable, Dict, List, Type
+from typing import Any, Callable, Dict, List
+
+from ast2json import ast2json
 
 
-# DYNAMIC AST VISITOR: Auto-discovery + O(1) Registry Dispatch
-class DynamicASTVisitor:
-    def __init__(self):
-        self._handlers: Dict[Type[ast.AST], Callable[[ast.AST], Dict[str, Any]]] = {}
-        self._visit_count = 0
-        self._max_depth = 0
-        self._type_counts: Dict[str, int] = {}
-        self._register_builtin_handlers()
+def _get_node_type(node: Dict[str, Any]) -> str | None:
+    return node.get("_type") or node.get("type")
 
 
-    def _register_builtin_handlers(self) -> None:
-        for name in dir(ast):
-            obj = getattr(ast, name)
-            if isinstance(obj, type) and issubclass(obj, ast.AST) and obj is not ast.AST:
-                self._handlers[obj] = self._generate_handler(obj)
-
-    def _generate_handler(self, node_type: Type[ast.AST]) -> Callable[[ast.AST], Dict[str, Any]]:
-        fields = getattr(node_type, "_fields", ())
-
-        def handler(node: ast.AST) -> Dict[str, Any]:
-            out: Dict[str, Any] = {"type": node_type.__name__}
-            for field in fields:
-                out[field] = self._process_value(getattr(node, field, None))
-
-            if hasattr(node, "lineno"):
-                out["lineno"] = node.lineno
-            if hasattr(node, "col_offset"):
-                out["col_offset"] = node.col_offset
-
-            return out
-
-        return handler
-
-
-    def _process_value(self, value: Any) -> Any:
-        if isinstance(value, ast.AST):
-            return self.visit(value)
-        if isinstance(value, list):
-            return [self._process_value(item) for item in value]
-        return value
-
-
-    def visit(self, node: ast.AST) -> Dict[str, Any]:
-        self._visit_count += 1
-        node_type = type(node)
-        self._type_counts[node_type.__name__] = self._type_counts.get(node_type.__name__, 0) + 1
-
-        handler = self._handlers.get(node_type)
-        if handler is None:
-            handler = self._generate_handler(node_type)
-            self._handlers[node_type] = handler
-
-        return handler(node)
-
-
-    def register_handler(self, node_type: Type[ast.AST], handler: Callable[[ast.AST], Dict[str, Any]]) -> None:
-        """Register a custom handler that overrides the built-in handler for a node type."""
-        self._handlers[node_type] = handler
-
-
-    def parse_tree(self, code: str) -> Dict[str, Any]:
-        self._visit_count = 0
-        self._max_depth = 0
-        self._type_counts = {}
-
-        tree = ast.parse(code)
-        results = [self._walk(node, 0) for node in tree.body]
-
-        return {
-            "nodes": results,
-            "metadata": {
-                "total_nodes_visited": self._visit_count,
-                "max_depth": self._max_depth,
-                "top_level_count": len(results),
-                "type_frequency": self._type_counts,
-                "registered_handlers": len(self._handlers),
-            },
-        }
-
-    def _walk(self, node: ast.AST, depth: int) -> Dict[str, Any]:
-        self._max_depth = max(self._max_depth, depth)
-        data = self.visit(node)
-        data["depth"] = depth
-        return data
-
-
-    def get_metrics(self) -> Dict[str, Any]:
-        return {
-            "visit_count": self._visit_count,
-            "max_depth": self._max_depth,
-            "type_counts": dict(self._type_counts),
-            "registered_handlers": len(self._handlers),
-        }
-
-    def get_registered_types(self) -> List[str]:
-        return sorted(t.__name__ for t in self._handlers)
-
-
-
-
-# Part of the **novel** approach: Intermediate Security Validation
-#
-# NL_COT (Natural Language Chain-of-Thought) pipeline:
-#   Prompt -> LLM reasoning -> Raw code -> Bandit/Semgrep (post-hoc validation)
-#
-# AST_COT (AST-Guided Chain-of-Thought) pipeline:
-#   Prompt -> LLM produces AST JSON -> SecurityVisitor (pre-synthesis) -> Code synthesis -> Bandit/Semgrep
-#                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-#                                      This step is only possible because we have
-#                                      structured output before code generation
-#
-# Foundational References:
-#   - Wei et al., "Chain-of-Thought Prompting Elicits Reasoning in Large Language
-#     Models," NeurIPS 2022. https://arxiv.org/abs/2201.11903
-#     (Intermediate reasoning steps improve LLM performance)
-#
-#   - Yamaguchi et al., "Generalized Vulnerability Extrapolation using Abstract
-#     Syntax Trees," ACSAC 2012. https://dl.acm.org/doi/10.1145/2420950.2421003
-#     (AST-based security analysis for vulnerability detection)
-#
-#   - Gamma et al., "Design Patterns" (1994) - Visitor Pattern
-#     (Structural pattern for AST traversal)
-#
-#   - Fowler, "Patterns of Enterprise Application Architecture" (2002), pp. 480-485
-#     (Registry Pattern for O(1) handler dispatch)
-
-class SecurityVisitor(DynamicASTVisitor):
+class SecurityValidator:
     DANGEROUS_CALLS = {
         "eval", "exec", "compile", "__import__",
         "getattr", "setattr", "delattr",
@@ -172,17 +37,9 @@ class SecurityVisitor(DynamicASTVisitor):
 
     SQL_FUNCTIONS = {"execute", "executemany", "raw"}
 
-    def __init__(self, debug: bool = False):
-        super().__init__()
+    def __init__(self):
         self._security_rules: Dict[str, List[Callable]] = {}
-        self._violations: List[Dict[str, Any]] = []
-        self.debug = debug
-
         self._register_default_rules()
-
-    def _log(self, *msg):
-        if self.debug:
-            print("[SecurityVisitor]", *msg)
 
     def _register_default_rules(self) -> None:
         self.add_rule("Call", self._check_dangerous_call)
@@ -197,27 +54,19 @@ class SecurityVisitor(DynamicASTVisitor):
 
 
     def validate(self, node_json: Dict[str, Any]) -> List[Dict[str, Any]]:
-        self._violations = []
-        self._log("Starting validation")
-
+        violations = []
         stack = [node_json]
 
         while stack:
             node = stack.pop()
 
             if isinstance(node, dict):
-                node_type = node.get("type")
-                self._log("Visiting:", node_type)
-
-                # apply rules for this node type
+                node_type = _get_node_type(node)
                 if node_type in self._security_rules:
                     for rule in self._security_rules[node_type]:
-                        result = rule(node)
-                        if result:
-                            self._log("  Violation:", result["rule"])
-                            self._violations.append(result)
+                        if result := rule(node):
+                            violations.append(result)
 
-                # push child structures for later
                 for value in node.values():
                     if isinstance(value, (dict, list)):
                         stack.append(value)
@@ -227,42 +76,32 @@ class SecurityVisitor(DynamicASTVisitor):
                     if isinstance(item, (dict, list)):
                         stack.append(item)
 
-        self._log("Validation complete. Found", len(self._violations), "issues.")
-        return self._violations
+        return violations
 
     def _check_dangerous_call(self, node: Dict[str, Any]) -> Dict[str, Any] | None:
-        self._log("Checking dangerous call")
         func = node.get("func")
         func_name = None
 
-        # attempt straightforward extraction
         if isinstance(func, str):
             func_name = func
         elif isinstance(func, dict):
-            node_type = func.get("type")
+            func_type = _get_node_type(func)
 
-            if node_type == "Name":
+            if func_type == "Name":
                 func_name = func.get("id")
-
-            elif node_type == "Attribute":
+            elif func_type == "Attribute":
                 module = func.get("value")
                 attr = func.get("attr")
+                module_name = module.get("id") if isinstance(module, dict) and _get_node_type(module) == "Name" else None
 
-                module_name = None
-                if isinstance(module, dict) and module.get("type") == "Name":
-                    module_name = module.get("id")
+                if module_name in self.DANGEROUS_MODULES and attr in self.DANGEROUS_MODULES[module_name]:
+                    return {
+                        "rule": "dangerous_module_call",
+                        "severity": "high",
+                        "message": f"Dangerous call detected: {module_name}.{attr}",
+                        "node": node,
+                    }
 
-                # check module-based dangerous calls
-                if module_name in self.DANGEROUS_MODULES:
-                    if attr in self.DANGEROUS_MODULES[module_name]:
-                        return {
-                            "rule": "dangerous_module_call",
-                            "severity": "high",
-                            "message": f"Dangerous call detected: {module_name}.{attr}",
-                            "node": node,
-                        }
-
-        # check builtin dangerous calls
         if func_name in self.DANGEROUS_CALLS:
             return {
                 "rule": "dangerous_builtin",
@@ -274,27 +113,19 @@ class SecurityVisitor(DynamicASTVisitor):
         return None
 
     def _check_sql_injection(self, node: Dict[str, Any]) -> Dict[str, Any] | None:
-        self._log("Checking SQL injection")
-
         func = node.get("func")
-        if not isinstance(func, dict):
+        if not isinstance(func, dict) or _get_node_type(func) != "Attribute":
             return None
 
-        if func.get("type") != "Attribute":
+        if func.get("attr") not in self.SQL_FUNCTIONS:
             return None
 
-        attr = func.get("attr")
-        if attr not in self.SQL_FUNCTIONS:
-            return None
-
-        args = node.get("args", [])
-
-        for arg in args:
+        for arg in node.get("args", []):
             if not isinstance(arg, dict):
                 continue
 
-            # concatenation-based queries
-            if arg.get("type") == "BinOp" and arg.get("op") in ("+", "%"):
+            arg_type = _get_node_type(arg)
+            if arg_type == "BinOp" and arg.get("op") in ("+", "%"):
                 return {
                     "rule": "sql_injection",
                     "severity": "critical",
@@ -302,8 +133,7 @@ class SecurityVisitor(DynamicASTVisitor):
                     "node": node,
                 }
 
-            # f-string SQL
-            if arg.get("type") == "JoinedStr":
+            if arg_type == "JoinedStr":
                 return {
                     "rule": "sql_injection",
                     "severity": "critical",
@@ -314,9 +144,9 @@ class SecurityVisitor(DynamicASTVisitor):
         return None
 
     def _check_dangerous_import(self, node: Dict[str, Any]) -> Dict[str, Any] | None:
-        self._log("Checking dangerous import")
+        node_type = _get_node_type(node)
 
-        if node.get("type") == "Import":
+        if node_type == "Import":
             for alias in node.get("names", []):
                 name = alias.get("name") if isinstance(alias, dict) else alias
                 if name in self.DANGEROUS_MODULES:
@@ -327,7 +157,7 @@ class SecurityVisitor(DynamicASTVisitor):
                         "node": node,
                     }
 
-        elif node.get("type") == "ImportFrom":
+        elif node_type == "ImportFrom":
             module = node.get("module")
             if module in self.DANGEROUS_MODULES:
                 return {
@@ -340,9 +170,7 @@ class SecurityVisitor(DynamicASTVisitor):
         return None
 
 
-# GLOBAL VISITOR INSTANCE
-
-_security_visitor = SecurityVisitor()
+_security_validator = SecurityValidator()
 
 
 # formatting functions
@@ -356,10 +184,8 @@ def code_to_ast_json(code: str) -> str:
     return json.dumps({"ast": ast.dump(tree)})
 
 def parse_prompt(code: str) -> dict:
-    visitor = DynamicASTVisitor()
     tree = ast.parse(code)
-    nodes = [visitor.visit(node) for node in tree.body]
-    return {"nodes": nodes}
+    return {"nodes": [ast2json(node) for node in tree.body]}
 
 
 _STRING_FIELDS = {"name", "attr", "arg", "id", "module", "asname"}
@@ -491,31 +317,28 @@ def _extract_args(args_node: dict) -> List[str]:
     return []
 
 
-# Helper to handle both dynamic and legacy AST import formats
 def _extract_imports(node: dict) -> List[str]:
-    """Extract module names from Import/ImportFrom nodes (dynamic format)."""
-    if node["type"] == "Import":
-        # New format: names is a list of alias nodes
+    node_type = _get_node_type(node)
+    if node_type == "Import":
         names = node.get("names", [])
         if names and isinstance(names[0], dict):
             return [alias.get("name", "") for alias in names]
-        # Legacy format: modules is already a list of strings
         return node.get("modules", [])
-    elif node["type"] == "ImportFrom":
+    elif node_type == "ImportFrom":
         module = node.get("module", "")
         return [module] if module else []
     return []
 
 
-# Core function of the AST-Guided CoT pipeline - orchestrates the novel approach
 def get_llm_ast_json(parsed_prompt: dict, llm_func) -> tuple[dict, str, list]:
     func_info = None
     imports = []
 
     for node in parsed_prompt["nodes"]:
-        if node["type"] == "FunctionDef":
+        node_type = _get_node_type(node)
+        if node_type == "FunctionDef":
             func_info = node
-        elif node["type"] in ("Import", "ImportFrom"):
+        elif node_type in ("Import", "ImportFrom"):
             imports.extend(_extract_imports(node))
 
     if not func_info:
@@ -526,14 +349,12 @@ def get_llm_ast_json(parsed_prompt: dict, llm_func) -> tuple[dict, str, list]:
     if isinstance(args, dict):
         args = _extract_args(args)
 
-    # Extract docstring - handle both formats
     docstring = func_info.get("docstring")
     if docstring is None and "body" in func_info:
-        # Try to get docstring from body in new format
         body = func_info.get("body", [])
-        if body and isinstance(body[0], dict) and body[0].get("type") == "Expr":
+        if body and isinstance(body[0], dict) and _get_node_type(body[0]) == "Expr":
             expr_value = body[0].get("value", {})
-            if isinstance(expr_value, dict) and expr_value.get("type") == "Constant":
+            if isinstance(expr_value, dict) and _get_node_type(expr_value) == "Constant":
                 docstring = expr_value.get("value")
 
     # Prompt going to stay static, because if we provide the dynamic list, it's going to get 
@@ -596,7 +417,7 @@ Invalid JSON:
             raise last_error
 
         # Step 2: Validate against security rules
-        violations = _security_visitor.validate(response_json)
+        violations = _security_validator.validate(response_json)
         if violations:
             print(f"---Security Violations Found: {len(violations)}---")
             for v in violations:
