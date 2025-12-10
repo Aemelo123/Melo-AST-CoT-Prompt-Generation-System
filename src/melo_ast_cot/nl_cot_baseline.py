@@ -1,29 +1,8 @@
-"""
-Natural Language Zero-Shot Chain-of-Thought Baseline
+'''
 
-This implements the baseline NL_COT condition.
+Prompting technique template is from Kojima et al. (2022) for zero-shot CoT prompting.
 
-Zero-Shot CoT Prompting:
-
-    Utilizes the "Let's think step by step" prompt phrase to encourage a model to reason
-    in order to produce an answer to a problem without providing zero-shot examples
-    (Kojima et al., 2022) as is done with the previous approach of Wei et al.'s (2022)
-    research that showed intermediate reasoning steps improved performance of Large
-    Language Models (LLMs) for performing complex tasks.
-
-Security Validation (Fair Comparison):
-
-    In order to provide a fair comparison of results between the two different conditions,
-    we perform the same Security Visitor validation upon the output of the NL_COT condition
-    that we do with the output of the AST_COT condition. The only difference is when
-    validation takes place:
-
-    - AST_COT: Validates the LLM's structural reasoning BEFORE code synthesis
-              (intermediate representation validation)
-    - NL_COT:  Validates AFTER code generation (post-hoc validation)
-
-    Both conditions use identical security rules and retry logic, ensuring any
-    performance differences reflect the prompting strategy, not validation coverage.
+"Let's think step by step"
 
 References:
     - Wei, J., Wang, X., Schuurmans, D., Bosma, M., Ichter, B., Xia, F., Chi, E., Le, Q.,
@@ -34,13 +13,12 @@ References:
     - Kojima, T., Gu, S. S., Reid, M., Matsuo, Y., & Iwasawa, Y. (2022). Large language
       models are zero-shot reasoners. Advances in Neural Information Processing Systems,
       35, 22199-22213. https://arxiv.org/abs/2205.11916
-"""
+'''
 
 from melo_ast_cot.ast_parser import _extract_imports, _extract_args, _get_node_type, parse_prompt as parse_code, SecurityValidator
 
-
+# Extract Python code from LLM response, handling markdown code blocks.
 def _extract_code(response: str) -> str:
-    """Extract Python code from LLM response, handling markdown code blocks."""
     code = response
     if "```python" in code:
         code = code.split("```python")[1].split("```")[0]
@@ -50,11 +28,9 @@ def _extract_code(response: str) -> str:
 
 
 def get_nl_cot_code(parsed_prompt: dict, llm_func) -> tuple[str, list]:
-    """Generate code using natural language zero-shot chain-of-thought prompting."""
     func_info = None
     imports = []
 
-    # Extract function definition and imports from parsed AST
     for node in parsed_prompt["nodes"]:
         node_type = _get_node_type(node)
         if node_type == "FunctionDef":
@@ -88,13 +64,11 @@ def get_nl_cot_code(parsed_prompt: dict, llm_func) -> tuple[str, list]:
 
 Let's think step by step."""
 
-    # Call LLM with NL CoT prompt
     response = llm_func(prompt)
 
     print("---NL CoT Raw Response---")
     print(response)
 
-    # Extract code from LLM response
     code = _extract_code(response)
 
     # Post-hoc security validation (same rules as AST_COT for fair comparison)
@@ -105,15 +79,12 @@ Let's think step by step."""
     max_retries = 2
     for attempt in range(max_retries):
         try:
-            # Parse generated code to AST for security validation
             parsed_code = parse_code(code)
 
-            # Validate each node against security rules
             for node in parsed_code.get("nodes", []):
                 node_violations = security_validator.validate(node)
                 violations.extend(node_violations)
 
-            # If violations found, prompt LLM to fix (retry mechanism)
             if violations and attempt < max_retries - 1:
                 violation_msgs = [f"- {v['message']}" for v in violations]
                 fix_prompt = f"""The following code has security vulnerabilities:
